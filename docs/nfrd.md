@@ -1,7 +1,7 @@
 # Fixora — Non-Functional Requirements Document (NFRD)
 
 **Document status:** Draft — Updated  
-**Version:** 2.0
+**Version:** 2.1
 
 ---
 
@@ -61,6 +61,20 @@ Target availability merupakan usulan awal. SLA aktual bergantung pada infrastruk
 | NFR-024 | Sistem membatasi request untuk mencegah abuse. |
 | NFR-025 | Akses administratif harus dilindungi dengan kontrol keamanan tambahan yang sesuai risiko. |
 
+### 4.1 Authentication controls (proposed)
+
+| ID | Requirement | Proposed Target |
+|---|---|---|
+| NFR-071 | Login admin dikunci sementara setelah percobaan password gagal berturut-turut | 5 percobaan |
+| NFR-072 | Kode OTP (HP dan email) memiliki masa berlaku, batas kirim ulang, dan rate limit per nomor/email | 6 digit, kirim ulang setelah 60 detik |
+| NFR-073 | Tautan reset password admin sekali pakai dan memiliki masa berlaku | 30 menit |
+| NFR-074 | Respons login dan lupa password tidak boleh membocorkan apakah akun terdaftar | Wajib |
+| NFR-075 | Password admin memenuhi kebijakan minimum | ≥ 8 karakter, kombinasi huruf besar, angka, simbol |
+| NFR-076 | Sesi admin dapat dicabut dari perangkat lain; opsi "ingat saya" memakai sesi persisten, selain itu sesi berakhir saat browser ditutup | Wajib |
+| NFR-077 | Admin baru wajib memverifikasi email sebelum dapat mengakses konsol | Wajib |
+
+Catatan mockup: halaman login admin menampilkan pesan "Email tidak terdaftar sebagai admin". Ini bertentangan dengan NFR-074 dan harus diganti dengan pesan generik pada implementasi.
+
 Security review dan penetration testing harus dilakukan sebelum production launch, dengan prioritas pada authentication, payment, file upload, dan akses data bisnis.
 
 ---
@@ -76,6 +90,9 @@ Security review dan penetration testing harus dilakukan sebelum production launc
 | NFR-030 | Retensi dan penghapusan data mengikuti kebijakan dan ketentuan hukum yang berlaku. |
 | NFR-031 | Data sensitif tidak boleh muncul pada log aplikasi secara tidak perlu. |
 | NFR-032 | Akses dan perubahan data penting dapat diaudit. |
+| NFR-078 | Nomor telepon customer dan worker tidak ditampilkan langsung satu sama lain; komunikasi melalui chat/telepon tersamar. |
+| NFR-079 | Akses admin ke data kontak customer dan worker tercatat di audit log. |
+| NFR-080 | Dokumen verifikasi worker (KTP, SKCK) disimpan terenkripsi dan hanya dapat dibuka oleh role verifikasi. |
 
 Kebijakan privasi, retensi, consent, dan pengelolaan data harus ditinjau terhadap ketentuan perlindungan data pribadi di Indonesia.
 
@@ -119,6 +136,9 @@ Arsitektur MVP dapat sederhana, tetapi data model harus menghindari asumsi satu 
 | NFR-048 | Error message menjelaskan tindakan yang dapat dilakukan pengguna. |
 | NFR-049 | Form menggunakan validasi dan instruksi yang jelas. |
 | NFR-050 | Antarmuka mempertimbangkan aksesibilitas, termasuk kontras, label, dan navigasi keyboard. |
+| NFR-081 | Aplikasi customer dan worker dirancang mobile-first, termasuk dukungan safe area perangkat. |
+| NFR-082 | Operasi yang bergantung pada jaringan menampilkan status loading, sukses, dan gagal. |
+| NFR-083 | Tombol yang hanya berisi ikon memiliki label aksesibel. |
 
 Target aksesibilitas yang disarankan adalah WCAG 2.1 AA untuk antarmuka yang relevan.
 
@@ -205,19 +225,6 @@ Angka ini harus ditinjau berdasarkan biaya infrastruktur dan kebutuhan operasion
 
 ## 14. Open Decisions
 
-| ID | Decision | Status |
-|---|---|---|
-| NDEC-001 | Cloud/infrastructure provider | TBD |
-| NDEC-002 | Production availability target | Proposed |
-| NDEC-003 | Performance target dan workload | Proposed |
-| NDEC-004 | RPO dan RTO | Proposed |
-| NDEC-005 | Data retention policy | TBD |
-| NDEC-006 | Log retention | TBD |
-| NDEC-007 | Security testing scope | TBD |
-| NDEC-008 | Payment provider | TBD |
-| NDEC-009 | Notification provider | TBD |
-| NDEC-010 | Map/geolocation provider | TBD |
-| NDEC-011 | B2B tenant isolation approach | TBD |
-| NDEC-012 | Enterprise SLA | TBD |
+Keputusan teknis dan NFR dicatat di [decisions.md](decisions.md). ID lama `NDEC-001` – `NDEC-012` dipetakan ke `DEC-xxx` di §5 dokumen tersebut. Contoh: target availability = DEC-046, RPO/RTO = DEC-048, payment provider = DEC-023.
 
 NFR dianggap selesai hanya jika memiliki metode pengujian dan hasil validasi yang dapat ditelusuri.

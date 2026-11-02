@@ -77,7 +77,7 @@ Fixora dikembangkan melalui empat fase.
 - Worker onboarding procedure.
 - Business model dan unit economics assumptions.
 - Finalized MVP scope.
-- UX/UI prototype.
+- UX/UI prototype — draft interaktif tersedia di `mockup/` (aplikasi customer, aplikasi mitra, admin console). Pemetaan layar ke requirement ada di FRD §9.
 - Development backlog.
 - Risk register.
 
@@ -528,21 +528,7 @@ Critical defects harus diselesaikan sebelum production release. Defect non-criti
 
 ## 15. Planning Decisions to Finalize
 
-| ID | Decision | Required Before |
-|---|---|---|
-| PLAN-001 | Kota dan area pilot | Phase 0 exit |
-| PLAN-002 | Kategori layanan MVP | Phase 0 exit |
-| PLAN-003 | Platform: web/mobile | Development start |
-| PLAN-004 | Worker onboarding target | Pilot |
-| PLAN-005 | Final pricing dan payout | Development start |
-| PLAN-006 | Payment provider | Payment development |
-| PLAN-007 | Cancellation dan refund policy | MVP release |
-| PLAN-008 | Warranty policy | Pilot |
-| PLAN-009 | Tim dan kapasitas development | Timeline baseline |
-| PLAN-010 | Target KPI pilot | Pilot start |
-| PLAN-011 | B2B pilot customer | Phase 3 start |
-| PLAN-012 | SaaS pricing metric | B2B commercial launch |
-| PLAN-013 | B2B contract dan SLA | B2B pilot |
+Keputusan planning beserta gate *Diperlukan sebelum* dicatat di [decisions.md](decisions.md). ID lama `PLAN-001` – `PLAN-013` dipetakan ke `DEC-xxx` di §5 dokumen tersebut.
 
 ---
 

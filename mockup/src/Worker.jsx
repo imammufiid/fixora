@@ -1,55 +1,135 @@
 import { useState } from 'react'
-import { useStore, ME, FLOW, STATUS, svcOf, areaOf, rp, fmtDate, extrasTotal } from './store'
-import { Phone, Btn, Badge, Card, Field, Row, Sheet, Empty, PhotoInput, Thumbs, inputCls } from './ui'
+import { Briefcase, Wallet, Star, CheckCircle2, MapPin, CalendarDays, Navigation, Phone as PhoneIcon, Check, Plus, Clock, Power, BadgeCheck, ChevronRight, Hourglass, Landmark, TrendingUp, Camera, ListChecks, Receipt, AlertTriangle, CircleUser } from 'lucide-react'
+import { useStore, useMe, ME, FLOW, STATUS, svcOf, areaOf, rp, fmtDate, extrasTotal, unpaid, held } from './store'
+import { WorkerProfile, WorkerPending } from './Profile'
+import { Screen, Btn, Badge, Card, Field, Row, Sheet, Empty, PhotoInput, Thumbs, SvcIcon, Avatar, SectionTitle, Pill, inputCls, cx } from './ui'
 
-const TABS = [{ id: 'jobs', icon: '🧰', label: 'Pekerjaan' }, { id: 'earn', icon: '💰', label: 'Pendapatan' }]
+const TABS = [
+  { id: 'jobs', icon: Briefcase, label: 'Pekerjaan' },
+  { id: 'earn', icon: Wallet, label: 'Pendapatan' },
+  { id: 'profile', icon: CircleUser, label: 'Akun' },
+]
+const OFFER_SECONDS = 30
+
+const earnOf = (b) => b.price.payout + extrasTotal(b)
 
 export default function Worker() {
-  const { state, act } = useStore()
-  const me = state.workers.find((w) => w.id === ME)
   const [tab, setTab] = useState('jobs')
   const [open, setOpen] = useState(null)
+  const me = useMe('worker')
+  // Simulasi job offer hanya untuk akun demo; akun lain melihat status verifikasi
+  if (me.id !== ME) return <WorkerPending />
   if (open) return <JobDetail id={open} onBack={() => setOpen(null)} />
-
-  const toggle = (
-    <button onClick={() => act.toggleOnline(ME)} className={`text-xs px-3 py-1 rounded-full font-medium ${me.online ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
-      {me.online ? '● Online' : '○ Offline'}
-    </button>
-  )
   return (
-    <Phone role="worker" title={tab === 'jobs' ? 'Fixora Partner' : 'Pendapatan'} right={toggle} tabs={TABS} tab={tab} onTab={setTab}>
-      {tab === 'jobs' ? <Jobs me={me} onOpen={setOpen} /> : <Earnings />}
-    </Phone>
+    <Screen role="worker" immersive="bg-slate-900" tabs={TABS} tab={tab} onTab={setTab}>
+      {(bell) => (tab === 'jobs' ? <Jobs bell={bell} onOpen={setOpen} /> : tab === 'earn' ? <Earnings bell={bell} /> : <WorkerProfile bell={bell} />)}
+    </Screen>
   )
 }
 
-function Jobs({ me, onOpen }) {
+function Header({ bell, children }) {
+  const { state, act } = useStore()
+  const me = state.workers.find((w) => w.id === ME)
+  return (
+    <div className="relative overflow-hidden rounded-b-[32px] bg-slate-900 px-5 pb-6 pt-4 text-white">
+      <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand-500/20 blur-2xl" />
+      <div className="relative flex items-center gap-3">
+        <Avatar name={me.name} size="md" className="ring-2 ring-white/20" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-bold">{me.name}</div>
+          <div className="flex items-center gap-1 text-[11px] text-brand-300"><BadgeCheck size={12} /> Mitra terverifikasi</div>
+        </div>
+        {bell}
+      </div>
+      <button
+        onClick={() => act.toggleOnline(ME)}
+        className={cx('relative mt-4 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left ring-1 transition', me.online ? 'bg-emerald-500/15 ring-emerald-400/30' : 'bg-white/5 ring-white/10')}
+      >
+        <span className={cx('flex h-9 w-9 items-center justify-center rounded-xl', me.online ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-400')}><Power size={18} /></span>
+        <div className="flex-1">
+          <div className="text-sm font-bold">{me.online ? 'Kamu sedang online' : 'Kamu sedang offline'}</div>
+          <div className="text-[11px] text-slate-400">{me.online ? 'Siap menerima job offer di Jakarta Selatan' : 'Aktifkan untuk mulai menerima pekerjaan'}</div>
+        </div>
+        <span className={cx('relative h-6 w-11 rounded-full transition', me.online ? 'bg-emerald-500' : 'bg-slate-600')}>
+          <span className={cx('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', me.online ? 'left-[22px]' : 'left-0.5')} />
+        </span>
+      </button>
+      {children}
+    </div>
+  )
+}
+
+function Jobs({ bell, onOpen }) {
   const { state } = useStore()
+  const me = state.workers.find((w) => w.id === ME)
   const offers = state.bookings.filter((b) => b.offer?.workerId === ME)
   const active = state.bookings.filter((b) => b.workerId === ME && FLOW.includes(b.status)).sort((a, b) => a.schedule - b.schedule)
+  const stats = [
+    [Star, 'Rating', me.rating.toFixed(2)],
+    [CheckCircle2, 'Selesai', me.jobs],
+    [MapPin, 'Area', 'Jaksel'],
+  ]
   return (
-    <>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <Card className="!p-2"><div className="text-[10px] text-slate-500">Rating</div><div className="font-bold">⭐ {me.rating.toFixed(1)}</div></Card>
-        <Card className="!p-2"><div className="text-[10px] text-slate-500">Selesai</div><div className="font-bold">{me.jobs}</div></Card>
-        <Card className="!p-2"><div className="text-[10px] text-slate-500">Area</div><div className="font-bold text-xs leading-5">Jaksel</div></Card>
+    <div className="pb-6">
+      <Header bell={bell}>
+        <div className="relative mt-3 grid grid-cols-3 gap-2">
+          {stats.map(([I, l, v]) => (
+            <div key={l} className="rounded-2xl bg-white/5 px-3 py-2.5 ring-1 ring-white/10">
+              <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400"><I size={11} /> {l}</div>
+              <div className="mt-0.5 text-[15px] font-extrabold">{v}</div>
+            </div>
+          ))}
+        </div>
+      </Header>
+
+      <div className="space-y-3 px-4 pt-4">
+        {offers.map((b) => <OfferCard key={b.id} b={b} />)}
+        <SectionTitle action={active.length > 0 && <span className="text-xs font-semibold text-slate-400">{active.length} pekerjaan</span>}>Pekerjaan aktif</SectionTitle>
+        {active.length === 0 && offers.length === 0 && (
+          <Card>
+            <Empty icon={me.online ? Hourglass : Power} title={me.online ? 'Menunggu job offer' : 'Tidak ada pekerjaan aktif'} text={me.online ? 'Tetap online — job offer baru akan muncul di sini.' : 'Aktifkan status online untuk menerima pekerjaan.'} />
+          </Card>
+        )}
+        {active.map((b) => {
+          const svc = svcOf(b.svc)
+          return (
+            <Card key={b.id} onClick={() => onOpen(b.id)} className="animate-slide-up cursor-pointer space-y-3 transition hover:border-brand-300">
+              <div className="flex items-start gap-3">
+                <SvcIcon id={b.svc} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold">{svc.name}{b.rework && ' · Rework'}</div>
+                  <div className="text-xs text-slate-500">{b.customer} · {b.id}</div>
+                </div>
+                <ChevronRight size={18} className="text-slate-300" />
+              </div>
+              <div className="space-y-1.5 text-xs text-slate-600">
+                <div className="flex items-center gap-2"><CalendarDays size={14} className="text-slate-400" /> {fmtDate(b.schedule)}</div>
+                <div className="flex items-center gap-2"><MapPin size={14} className="text-slate-400" /> <span className="truncate">{b.address}</span></div>
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                <Badge status={b.status} />
+                {b.extras.some((e) => e.status === 'pending') ? <Pill tone="amber"><Clock size={11} /> Menunggu persetujuan</Pill> : <span className="text-sm font-extrabold">{rp(earnOf(b))}</span>}
+              </div>
+            </Card>
+          )
+        })}
       </div>
-      {!me.online && <div className="bg-slate-200 text-slate-600 text-sm rounded-lg p-3">Kamu sedang offline dan tidak akan menerima job offer.</div>}
-      {offers.map((b) => <OfferCard key={b.id} b={b} />)}
-      <div className="font-semibold text-sm pt-1">Pekerjaan aktif</div>
-      {active.length === 0 && <Empty text={me.online ? 'Belum ada pekerjaan. Tetap online untuk menerima job offer.' : 'Tidak ada pekerjaan aktif.'} />}
-      {active.map((b) => (
-        <Card key={b.id} onClick={() => onOpen(b.id)} className="cursor-pointer hover:border-teal-500 space-y-1">
-          <div className="flex justify-between">
-            <span className="font-semibold text-sm">{svcOf(b.svc).icon} {svcOf(b.svc).name}{b.rework && ' · Rework'}</span>
-            <Badge status={b.status} />
-          </div>
-          <div className="text-xs text-slate-500">{b.id} · {fmtDate(b.schedule)}</div>
-          <div className="text-xs text-slate-500">📍 {b.address}</div>
-          {b.extras.some((e) => e.status === 'pending') && <div className="text-xs text-amber-700">⏳ Menunggu persetujuan biaya tambahan</div>}
-        </Card>
-      ))}
-    </>
+    </div>
+  )
+}
+
+function Countdown({ left }) {
+  const r = 22
+  const c = 2 * Math.PI * r
+  const urgent = left <= 10
+  return (
+    <div className="relative h-14 w-14">
+      <svg viewBox="0 0 52 52" className="h-14 w-14 -rotate-90">
+        <circle cx="26" cy="26" r={r} fill="none" stroke="currentColor" strokeWidth="4" className="text-white/15" />
+        <circle cx="26" cy="26" r={r} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - left / OFFER_SECONDS)} className={cx('transition-all duration-1000 ease-linear', urgent ? 'text-rose-400' : 'text-white')} />
+      </svg>
+      <span className={cx('absolute inset-0 flex items-center justify-center text-base font-extrabold tabular-nums', urgent && 'text-rose-300')}>{left}</span>
+    </div>
   )
 }
 
@@ -57,62 +137,125 @@ function OfferCard({ b }) {
   const { state, now, act } = useStore()
   const me = state.workers.find((w) => w.id === ME)
   const svc = svcOf(b.svc)
-  const left = Math.max(0, Math.ceil((b.offer.expiresAt - now) / 1000))
+  const left = Math.min(OFFER_SECONDS, Math.max(0, Math.ceil((b.offer.expiresAt - now) / 1000)))
   return (
-    <Card className="border-2 !border-teal-500 space-y-3">
-      <div className="flex justify-between items-center">
-        <span className="text-xs font-semibold text-teal-700 uppercase tracking-wide">Job offer baru</span>
-        <span className="font-mono text-sm text-red-600">00:{String(left).padStart(2, '0')}</span>
+    <div className="animate-pop overflow-hidden rounded-3xl bg-white shadow-lift ring-2 ring-brand-500">
+      <div className="flex items-center gap-3 bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-3 text-white">
+        <div className="flex-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-brand-100">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> Job offer baru
+          </div>
+          <div className="text-2xl font-extrabold">{rp(b.price.payout)}</div>
+          <div className="text-[11px] text-brand-100">Pendapatan bersih kamu</div>
+        </div>
+        <Countdown left={left} />
       </div>
-      <div className="h-1 bg-slate-100 rounded"><div className="h-1 bg-red-500 rounded transition-all duration-1000" style={{ width: `${(left / 30) * 100}%` }} /></div>
-      <div className="flex gap-3">
-        <span className="text-3xl">{svc.icon}</span>
-        <div className="text-sm">
-          <div className="font-semibold">{svc.name}{svc.param && ` · ${b.qty} ${svc.param.unit}`}</div>
-          <div className="text-xs text-slate-500">📍 {areaOf(b.area).name} · {me.dist[b.area]} km dari kamu</div>
-          <div className="text-xs text-slate-500">🗓️ {fmtDate(b.schedule)}</div>
+      <div className="space-y-3 p-4">
+        <div className="flex items-center gap-3">
+          <SvcIcon id={b.svc} size="lg" />
+          <div>
+            <div className="text-sm font-bold">{svc.name}{svc.param && ` · ${b.qty} ${svc.param.unit}`}</div>
+            <div className="text-xs text-slate-500">{b.customer}</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-xl bg-slate-50 p-2.5">
+            <div className="flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-400"><Navigation size={11} /> Jarak</div>
+            <div className="mt-0.5 font-bold">{me.dist[b.area]} km · {areaOf(b.area).name}</div>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-2.5">
+            <div className="flex items-center gap-1 text-[10px] font-semibold uppercase text-slate-400"><CalendarDays size={11} /> Jadwal</div>
+            <div className="mt-0.5 font-bold">{fmtDate(b.schedule)}</div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-100 p-3 text-[13px] text-slate-600">“{b.detail}”</div>
+        <div className="flex gap-2">
+          <Btn variant="secondary" size="lg" className="flex-1" onClick={() => act.decline(b.id, ME, 'ditolak')}>Tolak</Btn>
+          <Btn size="lg" className="flex-[2]" icon={Check} onClick={() => act.accept(b.id, ME, 'Worker')}>Terima pekerjaan</Btn>
         </div>
       </div>
-      <div className="text-sm bg-slate-50 rounded-lg p-2 text-slate-600">"{b.detail}"</div>
-      <Row label="Pendapatan kamu"><b className="text-base">{rp(b.price.payout)}</b></Row>
-      <div className="flex gap-2">
-        <Btn variant="secondary" className="flex-1" onClick={() => act.decline(b.id, ME, 'ditolak')}>Tolak</Btn>
-        <Btn className="flex-1" onClick={() => act.accept(b.id, ME, 'Worker')}>Terima</Btn>
-      </div>
-    </Card>
+    </div>
   )
 }
 
-function Earnings() {
+function Earnings({ bell }) {
   const { state } = useStore()
   const done = state.bookings.filter((b) => b.workerId === ME && ['completed', 'disputed'].includes(b.status))
-  const total = done.reduce((s, b) => s + b.price.payout + extrasTotal(b), 0)
+  const total = unpaid(state, ME).reduce((s, b) => s + earnOf(b), 0)
+  const onHold = held(state, ME).reduce((s, b) => s + earnOf(b), 0)
+  const extras = done.reduce((s, b) => s + extrasTotal(b), 0)
+  const payouts = state.payouts.filter((p) => p.workerId === ME)
   return (
-    <>
-      <Card className="bg-teal-600 !border-teal-600 text-white">
-        <div className="text-xs opacity-80">Saldo menunggu payout</div>
-        <div className="text-2xl font-bold">{rp(total)}</div>
-        <div className="text-xs opacity-80 mt-1">Payout otomatis setiap Senin ke BCA •••• 4321</div>
-      </Card>
-      <div className="font-semibold text-sm">Riwayat pekerjaan</div>
-      {done.length === 0 && <Empty text="Belum ada pekerjaan selesai" />}
-      {done.map((b) => (
-        <Card key={b.id} className="space-y-1">
-          <div className="flex justify-between text-sm"><span className="font-semibold">{svcOf(b.svc).name}</span><span className="font-semibold">{rp(b.price.payout + extrasTotal(b))}</span></div>
-          <div className="text-xs text-slate-500">{b.id} · {fmtDate(b.schedule)}{b.rating && ` · ⭐ ${b.rating}`}</div>
-          {extrasTotal(b) > 0 && <div className="text-xs text-slate-500">Termasuk biaya tambahan {rp(extrasTotal(b))}</div>}
-        </Card>
-      ))}
-    </>
+    <div className="pb-6">
+      <div className="relative overflow-hidden rounded-b-[32px] bg-slate-900 px-5 pb-6 pt-4 text-white">
+        <div className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-brand-500/25 blur-2xl" />
+        <div className="relative flex items-center justify-between">
+          <span className="font-bold">Pendapatan</span>
+          {bell}
+        </div>
+        <div className="relative mt-4 text-xs text-slate-400">Saldo menunggu payout</div>
+        <div className="relative text-3xl font-extrabold tracking-tight">{rp(total)}</div>
+        <div className="relative mt-3 flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-[11px] text-slate-300 ring-1 ring-white/10">
+          <Landmark size={14} className="text-brand-300" /> Payout otomatis setiap Senin ke BCA •••• 4321
+        </div>
+        {onHold > 0 && (
+          <div className="relative mt-2 flex items-center gap-2 rounded-xl bg-rose-500/15 px-3 py-2 text-[11px] text-rose-200 ring-1 ring-rose-400/30">
+            <AlertTriangle size={14} /> {rp(onHold)} ditahan sampai komplain diselesaikan
+          </div>
+        )}
+      </div>
+      <div className="space-y-3 px-4 pt-4">
+        <div className="grid grid-cols-2 gap-2">
+          <Card className="!p-3">
+            <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-400"><Briefcase size={12} /> Pekerjaan</div>
+            <div className="mt-1 text-lg font-extrabold">{done.length}</div>
+          </Card>
+          <Card className="!p-3">
+            <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-400"><TrendingUp size={12} /> Biaya tambahan</div>
+            <div className="mt-1 text-lg font-extrabold">{rp(extras)}</div>
+          </Card>
+        </div>
+        <SectionTitle>Riwayat pekerjaan</SectionTitle>
+        {done.length === 0 && <Card><Empty icon={Receipt} title="Belum ada pekerjaan selesai" /></Card>}
+        {done.map((b) => (
+          <Card key={b.id} className="flex items-center gap-3 !p-3.5">
+            <SvcIcon id={b.svc} size="sm" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-bold">{svcOf(b.svc).name}</div>
+              <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                {b.id} · {fmtDate(b.schedule)}
+                {b.rating && <><span>·</span><Star size={10} className="fill-amber-400 text-amber-400" />{b.rating}</>}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={cx('text-sm font-extrabold', b.status === 'disputed' ? 'text-slate-400' : 'text-emerald-600')}>+{rp(earnOf(b))}</div>
+              <div className="text-[10px] text-slate-400">{b.status === 'disputed' ? 'ditahan' : b.paidOut ? `dibayar · ${b.paidOut}` : 'menunggu payout'}</div>
+            </div>
+          </Card>
+        ))}
+        {payouts.length > 0 && <SectionTitle>Riwayat payout</SectionTitle>}
+        {payouts.map((p) => (
+          <Card key={p.id} className="flex items-center gap-3 !p-3.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><Landmark size={16} /></span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-bold">{p.id} · {p.count} pekerjaan</div>
+              <div className="text-[11px] text-slate-500">{fmtDate(p.t)} · ref {p.ref}</div>
+            </div>
+            <div className="text-sm font-extrabold">{rp(p.amount)}</div>
+          </Card>
+        ))}
+      </div>
+    </div>
   )
 }
 
 const NEXT = {
-  assigned: ['on_the_way', 'Mulai Perjalanan'],
-  on_the_way: ['arrived', 'Saya Sudah Tiba'],
-  arrived: ['in_progress', 'Mulai Pekerjaan'],
-  in_progress: ['waiting_confirmation', 'Selesaikan Pekerjaan'],
+  assigned: ['on_the_way', 'Mulai perjalanan', Navigation],
+  on_the_way: ['arrived', 'Saya sudah tiba', MapPin],
+  arrived: ['in_progress', 'Mulai pekerjaan', Briefcase],
+  in_progress: ['waiting_confirmation', 'Selesaikan pekerjaan', CheckCircle2],
 }
+const SHORT = { assigned: 'Diterima', on_the_way: 'Jalan', arrived: 'Tiba', in_progress: 'Kerja', waiting_confirmation: 'Selesai' }
 
 function JobDetail({ id, onBack }) {
   const { state, act } = useStore()
@@ -123,54 +266,72 @@ function JobDetail({ id, onBack }) {
   const [checks, setChecks] = useState([])
   const [extraOpen, setExtraOpen] = useState(false)
   const step = NEXT[b.status]
-  const idx = FLOW.indexOf(b.status)
+  const idx = ['completed', 'disputed'].includes(b.status) ? FLOW.length : FLOW.indexOf(b.status)
+  const working = ['arrived', 'in_progress'].includes(b.status)
 
   let block = null
   if (b.status === 'arrived' && !before.length) block = 'Unggah foto kondisi sebelum pekerjaan'
   if (b.status === 'in_progress') {
     if (b.extras.some((e) => e.status === 'pending')) block = 'Menunggu customer menyetujui biaya tambahan'
-    else if (checks.length < svc.checklist.length) block = 'Lengkapi checklist pekerjaan'
+    else if (checks.length < svc.checklist.length) block = `Lengkapi checklist (${checks.length}/${svc.checklist.length})`
     else if (!after.length) block = 'Unggah foto hasil pekerjaan'
   }
 
   const footer = step ? (
     <div className="space-y-2">
-      {block && <div className="text-xs text-amber-700">⚠️ {block}</div>}
-      <Btn className="w-full" disabled={!!block} onClick={() => act.advance(b.id, step[0], 'Worker', { beforePhotos: before, afterPhotos: after })}>{step[1]}</Btn>
+      {block && <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-700"><AlertTriangle size={13} /> {block}</div>}
+      <Btn size="lg" icon={step[2]} className="w-full" disabled={!!block} onClick={() => act.advance(b.id, step[0], 'Worker', { beforePhotos: before, afterPhotos: after })}>{step[1]}</Btn>
     </div>
   ) : b.status === 'waiting_confirmation' ? (
-    <div className="text-sm text-center text-slate-500 py-2">Menunggu konfirmasi customer…</div>
+    <div className="flex items-center justify-center gap-2 py-2 text-sm font-semibold text-slate-500"><Hourglass size={16} /> Menunggu konfirmasi customer…</div>
   ) : null
 
   return (
-    <Phone role="worker" title={b.id} onBack={onBack} footer={footer}>
-      <div className="flex items-center">
-        {FLOW.map((s, i) => (
-          <div key={s} className="flex-1 flex flex-col items-center gap-1">
-            <div className={`w-3 h-3 rounded-full ${i <= idx ? 'bg-teal-600' : 'bg-slate-300'}`} />
-            <div className={`text-[9px] text-center leading-tight ${i === idx ? 'font-semibold text-teal-700' : 'text-slate-400'}`}>{STATUS[s][0]}</div>
-          </div>
-        ))}
-      </div>
-
-      <Card className="space-y-2">
-        <div className="flex justify-between"><span className="font-semibold text-sm">{b.customer}</span><span className="text-xs text-slate-500">{fmtDate(b.schedule)}</span></div>
-        <div className="text-sm text-slate-600">📍 {b.address}</div>
-        <div className="flex gap-2">
-          <Btn variant="secondary" className="flex-1 !py-1.5">🗺️ Buka Maps</Btn>
-          <Btn variant="secondary" className="flex-1 !py-1.5">📞 Hubungi</Btn>
+    <Screen role="worker" title={`${svc.name}${b.rework ? ' · Rework' : ''}`} subtitle={b.id} onBack={onBack} footer={footer} right={<Badge status={b.status} className="mr-1" />}>
+      <Card className="!px-3 !py-3.5">
+        <div className="flex items-start">
+          {FLOW.map((s, i) => (
+            <div key={s} className="relative flex flex-1 flex-col items-center gap-1.5">
+              {i > 0 && <span className={cx('absolute right-1/2 top-[11px] h-0.5 w-full', i <= idx ? 'bg-brand-500' : 'bg-slate-200')} />}
+              <span className={cx('relative flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold', i < idx ? 'bg-brand-500 text-white' : i === idx ? 'bg-brand-600 text-white ring-4 ring-brand-100' : 'bg-slate-100 text-slate-400')}>
+                {i < idx ? <Check size={12} strokeWidth={3.5} /> : i + 1}
+              </span>
+              <span className={cx('text-[10px] font-semibold', i === idx ? 'text-brand-700' : 'text-slate-400')}>{SHORT[s]}</span>
+            </div>
+          ))}
         </div>
       </Card>
 
-      <Card className="space-y-2">
-        <div className="font-semibold text-sm">{svc.icon} {svc.name}{svc.param && ` · ${b.qty} ${svc.param.unit}`}</div>
-        <div className="text-sm text-slate-600">"{b.detail}"</div>
+      <Card className="space-y-3">
+        <div className="flex items-center gap-3">
+          <Avatar name={b.customer} />
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-bold">{b.customer}</div>
+            <div className="text-xs text-slate-500">{fmtDate(b.schedule)}</div>
+          </div>
+        </div>
+        <div className="flex gap-2.5 rounded-xl bg-slate-50 p-3 text-[13px] text-slate-700"><MapPin size={16} className="mt-0.5 shrink-0 text-brand-600" />{b.address}</div>
+        <div className="flex gap-2">
+          <Btn variant="soft" icon={Navigation} className="flex-1">Buka Maps</Btn>
+          <Btn variant="soft" icon={PhoneIcon} className="flex-1">Hubungi</Btn>
+        </div>
+      </Card>
+
+      <Card className="space-y-2.5">
+        <div className="flex items-center gap-2.5">
+          <SvcIcon id={b.svc} size="sm" />
+          <span className="text-sm font-bold">{svc.name}{svc.param && ` · ${b.qty} ${svc.param.unit}`}</span>
+        </div>
+        <div className="text-[13px] text-slate-600">“{b.detail}”</div>
         <Thumbs urls={b.photos} />
       </Card>
 
-      {['arrived', 'in_progress'].includes(b.status) && (
-        <Card className="space-y-2">
-          <div className="font-semibold text-sm">Foto sebelum pekerjaan</div>
+      {working && (
+        <Card className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-sm font-bold"><Camera size={16} className="text-slate-400" /> Foto sebelum</span>
+            {(b.status === 'arrived' ? before : b.beforePhotos)?.length > 0 && <CheckCircle2 size={18} className="text-emerald-500" />}
+          </div>
           {b.status === 'arrived' ? <PhotoInput value={before} onChange={setBefore} label="Sebelum" /> : <Thumbs urls={b.beforePhotos} />}
         </Card>
       )}
@@ -178,45 +339,62 @@ function JobDetail({ id, onBack }) {
       {b.status === 'in_progress' && (
         <>
           <Card className="space-y-2">
-            <div className="font-semibold text-sm">Checklist {svc.name}</div>
-            {svc.checklist.map((c) => (
-              <label key={c} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" className="accent-teal-600 w-4 h-4" checked={checks.includes(c)} onChange={() => setChecks(checks.includes(c) ? checks.filter((x) => x !== c) : [...checks, c])} />
-                {c}
-              </label>
-            ))}
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm font-bold"><ListChecks size={16} className="text-slate-400" /> Checklist {svc.name}</span>
+              <span className="text-xs font-bold text-slate-400">{checks.length}/{svc.checklist.length}</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${(checks.length / svc.checklist.length) * 100}%` }} /></div>
+            {svc.checklist.map((c) => {
+              const on = checks.includes(c)
+              return (
+                <button key={c} onClick={() => setChecks(on ? checks.filter((x) => x !== c) : [...checks, c])} className={cx('flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-[13px] transition hover:bg-slate-50', on && 'text-slate-400 line-through')}>
+                  <span className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition', on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300')}>{on && <Check size={12} strokeWidth={3.5} />}</span>
+                  {c}
+                </button>
+              )
+            })}
           </Card>
-          <Card className="space-y-2">
-            <div className="font-semibold text-sm">Foto hasil pekerjaan</div>
+          <Card className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm font-bold"><Camera size={16} className="text-slate-400" /> Foto hasil pekerjaan</span>
+              {after.length > 0 && <CheckCircle2 size={18} className="text-emerald-500" />}
+            </div>
             <PhotoInput value={after} onChange={setAfter} label="Sesudah" />
           </Card>
         </>
       )}
 
-      {(['arrived', 'in_progress'].includes(b.status) || b.extras.length > 0) && (
-        <Card className="space-y-2">
-          <div className="font-semibold text-sm">Biaya tambahan</div>
-          {b.extras.length === 0 && <div className="text-xs text-slate-400">Belum ada. Ajukan jika butuh material/part di luar lingkup awal.</div>}
+      {(working || b.extras.length > 0) && (
+        <Card className="space-y-2.5">
+          <div className="flex items-center gap-2 text-sm font-bold"><Receipt size={16} className="text-slate-400" /> Biaya tambahan</div>
+          {b.extras.length === 0 && <div className="text-xs text-slate-400">Ajukan jika butuh material/part di luar lingkup awal. Customer wajib menyetujui.</div>}
           {b.extras.map((e) => (
-            <Row key={e.id} label={e.item}>
-              {rp(e.amount)}{' '}
-              <span className={`text-xs ${e.status === 'approved' ? 'text-emerald-600' : e.status === 'rejected' ? 'text-red-600' : 'text-amber-600'}`}>
-                ({{ pending: 'menunggu', approved: 'disetujui', rejected: 'ditolak' }[e.status]})
-              </span>
-            </Row>
+            <div key={e.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
+              <div>
+                <div className="font-semibold">{e.item}</div>
+                <div className="text-xs text-slate-500">{rp(e.amount)}</div>
+              </div>
+              <Pill tone={{ pending: 'amber', approved: 'emerald', rejected: 'rose' }[e.status]} dot>{{ pending: 'Menunggu', approved: 'Disetujui', rejected: 'Ditolak' }[e.status]}</Pill>
+            </div>
           ))}
-          {['arrived', 'in_progress'].includes(b.status) && <Btn variant="secondary" className="w-full" onClick={() => setExtraOpen(true)}>+ Ajukan biaya tambahan</Btn>}
+          {working && <Btn variant="secondary" icon={Plus} className="w-full" onClick={() => setExtraOpen(true)}>Ajukan biaya tambahan</Btn>}
         </Card>
       )}
 
-      <Card>
-        <Row label="Pendapatan kamu"><b>{rp(b.price.payout + extrasTotal(b))}</b></Row>
-      </Card>
+      <div className="flex items-center justify-between rounded-2xl bg-slate-900 px-4 py-3.5 text-white">
+        <span className="text-xs text-slate-400">Pendapatan dari pekerjaan ini</span>
+        <span className="text-lg font-extrabold">{rp(earnOf(b))}</span>
+      </div>
 
       <ExtraSheet open={extraOpen} b={b} onClose={() => setExtraOpen(false)} />
-    </Phone>
+    </Screen>
   )
 }
+
+const EXTRA_PRESETS = [
+  ['Isi freon R32', 150000, 'Tekanan freon rendah, perlu isi ulang'],
+  ['Ganti kapasitor', 85000, 'Kapasitor kembung, kompresor tidak mau start'],
+]
 
 function ExtraSheet({ open, b, onClose }) {
   const { act } = useStore()
@@ -229,13 +407,26 @@ function ExtraSheet({ open, b, onClose }) {
     onClose()
   }
   return (
-    <Sheet open={open} title="Ajukan biaya tambahan" onClose={onClose}>
+    <Sheet open={open} title="Ajukan biaya tambahan" subtitle="Customer harus menyetujui sebelum pekerjaan bisa diselesaikan" onClose={onClose}>
+      {b.svc === 'ac' && (
+        <div className="flex flex-wrap gap-1.5">
+          {EXTRA_PRESETS.map(([item, amount, reason]) => (
+            <button key={item} onClick={() => setF((p) => ({ ...p, item, amount: String(amount), reason }))} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-brand-400 hover:text-brand-700">
+              {item}
+            </button>
+          ))}
+        </div>
+      )}
       <Field label="Item / pekerjaan"><input className={inputCls} value={f.item} onChange={(e) => set('item', e.target.value)} placeholder="Contoh: Ganti kapasitor" /></Field>
-      <Field label="Nominal (Rp)"><input type="number" className={inputCls} value={f.amount} onChange={(e) => set('amount', e.target.value)} placeholder="85000" /></Field>
-      <Field label="Alasan"><textarea rows={2} className={inputCls} value={f.reason} onChange={(e) => set('reason', e.target.value)} placeholder="Jelaskan kenapa dibutuhkan" /></Field>
+      <Field label="Nominal">
+        <div className="relative">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">Rp</span>
+          <input type="number" className={cx(inputCls, 'pl-10')} value={f.amount} onChange={(e) => set('amount', e.target.value)} placeholder="85000" />
+        </div>
+      </Field>
+      <Field label="Alasan"><textarea rows={2} className={cx(inputCls, 'resize-none')} value={f.reason} onChange={(e) => set('reason', e.target.value)} placeholder="Jelaskan kenapa dibutuhkan" /></Field>
       <Field label="Bukti foto"><PhotoInput value={f.photos} onChange={(v) => set('photos', v)} /></Field>
-      <div className="text-xs text-slate-500">Customer harus menyetujui sebelum pekerjaan bisa diselesaikan.</div>
-      <Btn className="w-full" disabled={!valid} onClick={submit}>Kirim ke customer</Btn>
+      <Btn size="lg" className="w-full" disabled={!valid} onClick={submit}>Kirim ke customer</Btn>
     </Sheet>
   )
 }

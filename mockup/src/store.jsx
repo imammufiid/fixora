@@ -26,20 +26,25 @@ export const AREAS = [
 export const areaOf = (id) => AREAS.find((a) => a.id === id)
 
 export const SERVICE_FEE = 10000
+// Radius pencarian mitra (km): mulai dari radius awal, diperluas sebelum eskalasi ke admin (FR-047)
+export const RADIUS = [5, 10]
 export const ME = 'w1'
 export const CUSTOMER = 'Rina Maharani'
+export const OTP_CODE = '123456'
+export const digits = (p = '') => p.replace(/\D/g, '')
+export const fmtPhone = (p) => digits(p).replace(/^(\d{4})(\d{4})(\d+)$/, '$1-$2-$3')
 
 export const STATUS = {
-  pending_payment: ['Menunggu Pembayaran', 'bg-slate-100 text-slate-700'],
-  searching: ['Mencari Teknisi', 'bg-amber-100 text-amber-800'],
-  assigned: ['Teknisi Ditugaskan', 'bg-blue-100 text-blue-700'],
-  on_the_way: ['Dalam Perjalanan', 'bg-blue-100 text-blue-700'],
-  arrived: ['Teknisi Tiba', 'bg-blue-100 text-blue-700'],
-  in_progress: ['Sedang Dikerjakan', 'bg-indigo-100 text-indigo-700'],
-  waiting_confirmation: ['Menunggu Konfirmasi', 'bg-purple-100 text-purple-700'],
-  completed: ['Selesai', 'bg-emerald-100 text-emerald-700'],
-  cancelled: ['Dibatalkan', 'bg-slate-200 text-slate-600'],
-  disputed: ['Dalam Komplain', 'bg-red-100 text-red-700'],
+  pending_payment: ['Menunggu Pembayaran', 'slate'],
+  searching: ['Mencari Teknisi', 'amber'],
+  assigned: ['Teknisi Ditugaskan', 'sky'],
+  on_the_way: ['Dalam Perjalanan', 'sky'],
+  arrived: ['Teknisi Tiba', 'sky'],
+  in_progress: ['Sedang Dikerjakan', 'violet'],
+  waiting_confirmation: ['Menunggu Konfirmasi', 'fuchsia'],
+  completed: ['Selesai', 'emerald'],
+  cancelled: ['Dibatalkan', 'slate'],
+  disputed: ['Dalam Komplain', 'rose'],
 }
 export const ACTIVE = ['pending_payment', 'searching', 'assigned', 'on_the_way', 'arrived', 'in_progress', 'waiting_confirmation']
 export const FLOW = ['assigned', 'on_the_way', 'arrived', 'in_progress', 'waiting_confirmation']
@@ -68,6 +73,11 @@ export function calcPrice(rule, svc, qty) {
 export const extrasTotal = (b) => b.extras.filter((e) => e.status === 'approved').reduce((s, e) => s + e.amount, 0)
 export const totalOf = (b) => b.price.base + b.price.fee + extrasTotal(b)
 
+// Payout mitra: booking selesai yang belum dibayar. Booking dalam komplain ditahan.
+export const payoutOf = (b) => b.price.payout + extrasTotal(b)
+export const unpaid = (state, workerId) => state.bookings.filter((b) => b.workerId === workerId && b.status === 'completed' && !b.paidOut)
+export const held = (state, workerId) => state.bookings.filter((b) => b.workerId === workerId && b.status === 'disputed')
+
 // Bobot matching awal (PRD §9). Worker baru diberi rating netral agar tetap mendapat kesempatan.
 export function scoreWorker(w, b) {
   const skill = w.skills.includes(b.svc) ? 35 : 0
@@ -80,7 +90,10 @@ export function scoreWorker(w, b) {
 export function candidates(state, b) {
   return state.workers
     .filter((w) => w.verified === 'verified' && w.skills.includes(b.svc) && w.areas.includes(areaOf(b.area).city))
-    .map((w) => ({ w, score: scoreWorker(w, b), eligible: w.online && !b.tried.includes(w.id) }))
+    .map((w) => {
+      const inRadius = w.dist[b.area] <= (b.radius || RADIUS[0])
+      return { w, score: scoreWorker(w, b), inRadius, eligible: w.online && inRadius && !b.tried.includes(w.id) }
+    })
     .sort((a, c) => c.score - a.score)
 }
 
@@ -93,8 +106,12 @@ const PRICES = [
   { id: 'p6', svc: 'ac', level: 'city', region: 'Bekasi', price: 120000, payout: 102000, version: 1, from: dayAt(-14, 0) },
 ]
 
+const CUSTOMERS = [
+  { id: 'c1', name: CUSTOMER, phone: '0812-3456-7890', email: 'rina.maharani@gmail.com', address: 'Jl. Melawai Raya No. 12, Kebayoran Baru', joined: dayAt(-140, 0) },
+]
+
 const WORKERS = [
-  { id: 'w1', name: 'Budi Santoso', phone: '0812-1111-2222', skills: ['ac', 'elec'], areas: ['Jakarta Selatan'], verified: 'verified', online: true, rating: 4.8, ratingCount: 132, jobs: 132, dist: { kby: 2.3, tbt: 5.1, bks: 20 } },
+  { id: 'w1', name: 'Budi Santoso', phone: '0812-1111-2222', email: 'budi.santoso@gmail.com', joined: dayAt(-400, 0), bank: 'BCA •••• 4321', skills: ['ac', 'elec'], areas: ['Jakarta Selatan'], verified: 'verified', online: true, rating: 4.8, ratingCount: 132, jobs: 132, dist: { kby: 2.3, tbt: 5.1, bks: 20 } },
   { id: 'w2', name: 'Rudi Hartono', phone: '0813-2222-3333', skills: ['ac', 'handy'], areas: ['Jakarta Selatan'], verified: 'verified', online: true, rating: 4.6, ratingCount: 87, jobs: 87, dist: { kby: 4, tbt: 2, bks: 18 } },
   { id: 'w3', name: 'Andi Pratama', phone: '0815-3333-4444', skills: ['plumb', 'handy'], areas: ['Jakarta Selatan'], verified: 'verified', online: false, rating: 4.7, ratingCount: 54, jobs: 54, dist: { kby: 3.5, tbt: 1.2, bks: 17 } },
   { id: 'w4', name: 'Sari Wulandari', phone: '0817-4444-5555', skills: ['plumb'], areas: ['Jakarta Selatan'], verified: 'pending', online: false, rating: 0, ratingCount: 0, jobs: 0, dist: { kby: 1.8, tbt: 3, bks: 19 }, docs: ['KTP', 'SKCK', 'Sertifikat Plumbing'] },
@@ -112,6 +129,13 @@ function initState() {
   return {
     prices: PRICES,
     workers: WORKERS,
+    customers: CUSTOMERS,
+    svcOff: [],
+    payouts: [
+      { id: 'PO-0412', workerId: 'w1', amount: 1840000, count: 11, t: dayAt(-6, 9), ref: 'BCA-7781203' },
+      { id: 'PO-0413', workerId: 'w2', amount: 1275000, count: 9, t: dayAt(-6, 9), ref: 'MDR-5510932' },
+    ],
+    auth: { customer: null, worker: null },
     notifs: [],
     bookings: [
       mk('FX-1003', 'plumb', 'tbt', 1, {
@@ -145,7 +169,7 @@ function reducer(s, a) {
   switch (a.type) {
     case 'book': {
       const nb = {
-        ...a.data, id: a.id, customer: CUSTOMER, status: 'searching', extras: [], tried: [], offer: null, needsAdmin: false, workerId: null, createdAt: now, changedAt: now,
+        customer: CUSTOMER, ...a.data, id: a.id, status: 'searching', extras: [], tried: [], offer: null, needsAdmin: false, workerId: null, createdAt: now, changedAt: now,
         log: [{ t: now, actor: 'Customer', text: 'Booking dibuat' }, { t: now, actor: 'Sistem', text: `Pembayaran ${rp(a.data.price.base + a.data.price.fee)} via ${a.data.payMethod} berhasil` }],
       }
       return note({ ...s, bookings: [nb, ...s.bookings] }, 'admin', `Booking baru ${a.id} — ${svcOf(nb.svc).name}`)
@@ -153,6 +177,11 @@ function reducer(s, a) {
     case 'offer':
       s2 = patch(s, (x) => log(x, 'Sistem', `Job offer dikirim ke ${wName(a.workerId)} (skor ${a.score})`, { offer: { workerId: a.workerId, at: now, expiresAt: now + 30000 } }))
       return a.workerId === ME ? note(s2, 'worker', `Job offer baru: ${svcOf(b.svc).name} di ${areaOf(b.area).name}`) : s2
+    case 'expand': {
+      const r = b.radius || RADIUS[0]
+      const next = RADIUS[RADIUS.indexOf(r) + 1]
+      return patch(s, (x) => log(x, 'Sistem', `Tidak ada mitra tersedia dalam ${r} km — radius diperluas ke ${next} km`, { radius: next }))
+    }
     case 'noWorker':
       return note(patch(s, (x) => log(x, 'Sistem', 'Tidak ada worker tersedia — perlu intervensi admin', { needsAdmin: true })), 'admin', `${a.id} butuh penugasan manual`)
     case 'accept':
@@ -200,9 +229,46 @@ function reducer(s, a) {
     case 'verify':
       return { ...s, workers: s.workers.map((w) => (w.id === a.workerId ? { ...w, verified: a.decision, note: a.note, online: a.decision === 'verified' } : w)) }
     case 'setPrice':
-      return { ...s, prices: s.prices.map((p) => (p.id === a.pid ? { ...p, price: a.price, payout: a.payout, version: p.version + 1, from: now } : p)) }
+      return {
+        ...s,
+        prices: s.prices.map((p) =>
+          p.id === a.pid ? { ...p, price: a.price, payout: a.payout, version: p.version + 1, from: now, history: [{ version: p.version, price: p.price, payout: p.payout, from: p.from, to: now }, ...(p.history || [])] } : p,
+        ),
+      }
+    case 'addPrice':
+      return { ...s, prices: [...s.prices, { ...a.rule, id: 'p' + now, version: 1, from: now }] }
+    case 'toggleService':
+      return { ...s, svcOff: s.svcOff.includes(a.svc) ? s.svcOff.filter((x) => x !== a.svc) : [...s.svcOff, a.svc] }
+    case 'runPayout': {
+      const batch = s.workers
+        .map((w) => ({ w, list: unpaid(s, w.id) }))
+        .filter((x) => x.list.length)
+        .map(({ w, list }, i) => ({ id: `PO-${String(414 + s.payouts.length + i).padStart(4, '0')}`, workerId: w.id, amount: list.reduce((t, b) => t + payoutOf(b), 0), count: list.length, t: now, ref: `TRF-${String(now).slice(-7)}${i}`, ids: list.map((b) => b.id) }))
+      const paid = Object.fromEntries(batch.flatMap((p) => p.ids.map((id) => [id, p.id])))
+      s2 = { ...s, payouts: [...batch, ...s.payouts], bookings: s.bookings.map((b) => (paid[b.id] ? { ...b, paidOut: paid[b.id] } : b)) }
+      return batch.some((p) => p.workerId === ME) ? note(s2, 'worker', `Payout ${rp(batch.find((p) => p.workerId === ME).amount)} dikirim ke rekeningmu`) : s2
+    }
+    case 'resubmitDocs':
+      return note({ ...s, workers: s.workers.map((w) => (w.id === a.workerId ? { ...w, docs: a.docs, verified: 'pending', note: null } : w)) }, 'admin', `${wName(a.workerId)} mengirim ulang dokumen verifikasi`)
     case 'toggleOnline':
       return { ...s, workers: s.workers.map((w) => (w.id === a.workerId ? { ...w, online: !w.online } : w)) }
+    case 'login':
+      return { ...s, auth: { ...s.auth, [a.role]: a.userId } }
+    case 'logout':
+      return { ...s, auth: { ...s.auth, [a.role]: null } }
+    case 'registerCustomer':
+      return { ...s, customers: [...s.customers, { ...a.data, id: a.userId, joined: now }], auth: { ...s.auth, customer: a.userId } }
+    case 'registerWorker': {
+      const w = { ...a.data, id: a.userId, joined: now, verified: 'pending', online: false, rating: 0, ratingCount: 0, jobs: 0, dist: { kby: 3, tbt: 3, bks: 15 } }
+      return note({ ...s, workers: [...s.workers, w], auth: { ...s.auth, worker: a.userId } }, 'admin', `Pendaftaran mitra baru: ${w.name}`)
+    }
+    case 'updateProfile': {
+      const key = a.role === 'worker' ? 'workers' : 'customers'
+      const old = s[key].find((u) => u.id === a.userId)
+      s2 = { ...s, [key]: s[key].map((u) => (u.id === a.userId ? { ...u, ...a.data } : u)) }
+      // Nama customer disalin ke booking, jadi ikut diperbarui
+      return a.role === 'customer' && a.data.name ? { ...s2, bookings: s2.bookings.map((b) => (b.customer === old.name ? { ...b, customer: a.data.name } : b)) } : s2
+    }
     case 'read':
       return { ...s, notifs: s.notifs.map((n) => (n.role === a.role ? { ...n, read: true } : n)) }
     default:
@@ -228,6 +294,11 @@ export function StoreProvider({ children }) {
       resolve: (id, resolution) => dispatch({ type: 'resolve', id, resolution, newId: 'FX-' + seq++ }),
       offer: mk('offer', 'id', 'workerId', 'score'),
       noWorker: mk('noWorker', 'id'),
+      expand: mk('expand', 'id'),
+      addPrice: mk('addPrice', 'rule'),
+      toggleService: mk('toggleService', 'svc'),
+      runPayout: mk('runPayout'),
+      resubmitDocs: mk('resubmitDocs', 'workerId', 'docs'),
       accept: mk('accept', 'id', 'workerId', 'actor'),
       decline: mk('decline', 'id', 'workerId', 'reason'),
       advance: mk('advance', 'id', 'status', 'actor', 'extra'),
@@ -241,6 +312,11 @@ export function StoreProvider({ children }) {
       setPrice: mk('setPrice', 'pid', 'price', 'payout'),
       toggleOnline: mk('toggleOnline', 'workerId'),
       read: mk('read', 'role'),
+      login: mk('login', 'role', 'userId'),
+      logout: mk('logout', 'role'),
+      updateProfile: mk('updateProfile', 'role', 'userId', 'data'),
+      registerCustomer: (data) => dispatch({ type: 'registerCustomer', userId: 'c' + seq++, data }),
+      registerWorker: (data) => dispatch({ type: 'registerWorker', userId: 'w' + seq++, data }),
     }
   }, [])
 
@@ -257,7 +333,9 @@ export function StoreProvider({ children }) {
         else if (b.offer.workerId !== ME && now - b.offer.at > 3000) act.accept(b.id, b.offer.workerId, 'Worker')
       } else if (b.status === 'searching' && !b.needsAdmin && now - b.changedAt > 2000) {
         const c = candidates(state, b).find((c) => c.eligible)
-        c ? act.offer(b.id, c.w.id, c.score) : act.noWorker(b.id)
+        if (c) act.offer(b.id, c.w.id, c.score)
+        else if ((b.radius || RADIUS[0]) < RADIUS.at(-1)) act.expand(b.id)
+        else act.noWorker(b.id)
       } else if (b.workerId && b.workerId !== ME && FLOW.includes(b.status) && b.status !== 'waiting_confirmation' && now - b.changedAt > 5000) {
         act.advance(b.id, FLOW[FLOW.indexOf(b.status) + 1], 'Worker', {})
       }
@@ -268,3 +346,10 @@ export function StoreProvider({ children }) {
 }
 
 export const useStore = () => useContext(Ctx)
+
+// Akun yang sedang login untuk role tertentu
+export function useMe(role) {
+  const { state } = useStore()
+  const id = state.auth[role]
+  return (role === 'worker' ? state.workers : state.customers).find((u) => u.id === id) || null
+}

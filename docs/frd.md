@@ -1,8 +1,8 @@
 # Fixora — Functional Requirements Document (FRD)
 
 **Document status:** Draft — Updated  
-**Version:** 2.0  
-**Related document:** PRD v2.0
+**Version:** 2.1  
+**Related document:** PRD v2.1, mockup interaktif (`mockup/`)
 
 ---
 
@@ -25,7 +25,7 @@ Prioritas:
 | Customer | Memesan layanan |
 | Worker | Menerima dan menyelesaikan pekerjaan |
 | Service Partner Admin | Mengelola tim teknisi |
-| Platform Admin | Mengelola keseluruhan platform |
+| Platform Admin (Super Admin) | Mengelola keseluruhan platform |
 | Operations Admin | Mengelola booking dan operasional |
 | Finance Admin | Mengelola pembayaran dan payout |
 | Business Admin | Mengelola organization dan lokasi |
@@ -33,6 +33,22 @@ Prioritas:
 | Business Viewer | Melihat laporan dan status |
 
 Hak akses harus dikendalikan menggunakan role dan permission.
+
+### Matriks akses Admin Console (MVP, proposed)
+
+| Halaman | Super Admin | Operations Admin | Finance Admin |
+|---|:-:|:-:|:-:|
+| Dashboard | ✓ | ✓ | ✓ |
+| Booking (daftar & detail) | ✓ | ✓ | ✓ (lihat) |
+| Komplain | ✓ | ✓ | — |
+| Verifikasi Mitra | ✓ | ✓ | — |
+| Customer | ✓ | ✓ | ✓ |
+| Transaksi & Payout | ✓ | — | ✓ |
+| Katalog Layanan | ✓ | ✓ | — |
+| Harga Regional | ✓ | ✓ | — |
+| Profil & keamanan akun sendiri | ✓ | ✓ | ✓ |
+
+Halaman di luar hak akses tidak tampil di navigasi dan menampilkan pesan "Akses terbatas" jika dibuka langsung. Pembatasan tetap wajib divalidasi di server (NFR-018).
 
 ---
 
@@ -49,6 +65,10 @@ Hak akses harus dikendalikan menggunakan role dan permission.
 | FR-005 | P0 | Sistem menyediakan role-based access untuk admin. |
 | FR-006 | P1 | Sistem mendukung organization account untuk B2B. |
 | FR-007 | P1 | Business Admin dapat mengundang anggota organization. |
+| FR-122 | P0 | Customer dan worker mendaftar dan masuk menggunakan nomor HP + OTP (tanpa password). Nomor yang belum terdaftar diarahkan ke registrasi. |
+| FR-123 | P0 | Admin masuk menggunakan email kerja + password, diikuti verifikasi kode OTP yang dikirim ke email. SSO Google untuk domain perusahaan dapat digunakan sebagai alternatif. |
+| FR-124 | P1 | Admin dapat mengubah password, mengaktifkan verifikasi dua langkah, melihat dan mencabut sesi aktif, serta melihat riwayat aktivitas akunnya. |
+| FR-125 | P0 | Customer dapat menyimpan alamat utama yang terisi otomatis saat membuat booking. |
 
 ### 3.2 Worker Registration & Verification
 
@@ -63,6 +83,10 @@ Hak akses harus dikendalikan menggunakan role dan permission.
 | FR-014 | P0 | Worker dapat mengatur ketersediaan kerja. |
 | FR-015 | P1 | Service Partner Admin dapat mendaftarkan dan mengelola anggota tim. |
 | FR-016 | P1 | Sistem mendukung dokumen kompetensi atau sertifikasi khusus. |
+| FR-126 | P0 | Worker dapat melihat status pendaftaran (ditinjau, perlu revisi, ditolak, aktif) beserta catatan admin. |
+| FR-127 | P0 | Worker yang diminta revisi dapat mengunggah ulang dokumen; pendaftaran kembali ke antrean verifikasi admin. |
+
+Dokumen awal yang diusulkan: KTP (wajib), SKCK (wajib), sertifikat keahlian (opsional, wajib untuk kategori tertentu sesuai FR-022). Target waktu verifikasi: 1–2 hari kerja.
 
 ### 3.3 Service Catalog
 
@@ -74,6 +98,8 @@ Hak akses harus dikendalikan menggunakan role dan permission.
 | FR-020 | P0 | Customer dapat mengisi parameter pekerjaan yang diperlukan. |
 | FR-021 | P0 | Customer dapat mengunggah foto atau video kondisi pekerjaan. |
 | FR-022 | P1 | Admin dapat menentukan persyaratan kompetensi per layanan. |
+| FR-128 | P0 | Admin dapat mengaktifkan atau menonaktifkan layanan. Layanan nonaktif tidak tampil sebagai dapat dipesan dan tidak menerima booking baru; booking berjalan tidak terpengaruh. |
+| FR-129 | P0 | Admin dapat melihat konfigurasi layanan: model harga, parameter variabel, jumlah aturan harga, jumlah worker terverifikasi, dan checklist pekerjaan. |
 
 ### 3.4 Regional Pricing
 
@@ -90,6 +116,8 @@ Hak akses harus dikendalikan menggunakan role dan permission.
 | FR-031 | P0 | Worker dapat mengajukan biaya tambahan disertai alasan dan bukti. |
 | FR-032 | P0 | Customer harus menyetujui biaya tambahan sebelum pekerjaan dilanjutkan. |
 | FR-033 | P1 | Sistem mendukung inspection fee dan quotation untuk pekerjaan kompleks. |
+| FR-130 | P0 | Admin dapat melihat matriks cakupan harga area × layanan beserta level harga yang dipakai (zone, city, atau tidak tersedia). |
+| FR-131 | P0 | Sistem menolak aturan harga yang payout worker-nya ≥ harga layanan, atau yang duplikat untuk kombinasi layanan + level + wilayah yang sama. Perubahan harga membuat versi baru; versi lama tetap dapat dilihat. |
 
 ### 3.5 Booking & Scheduling
 
@@ -103,6 +131,13 @@ Hak akses harus dikendalikan menggunakan role dan permission.
 | FR-039 | P0 | Customer dapat membatalkan booking sesuai cancellation policy. |
 | FR-040 | P1 | Customer dapat melakukan repeat booking. |
 | FR-041 | P1 | Customer dapat membuat booking berulang. |
+| FR-132 | P0 | Customer memilih tanggal kunjungan (hari ini hingga H+4) dan slot kedatangan dengan rentang 2 jam. Slot yang penuh atau terlalu dekat dengan waktu sekarang tidak dapat dipilih. |
+| FR-133 | P0 | Ringkasan sebelum pembayaran menampilkan harga layanan (termasuk parameter), biaya layanan, total, wilayah harga yang dipakai, dan ketentuan pembatalan. |
+| FR-134 | P0 | Customer dapat melihat timeline perubahan status booking. |
+| FR-135 | P1 | Customer dapat melihat perkiraan waktu tiba dan posisi worker saat status On The Way. |
+| FR-136 | P1 | Customer dan worker dapat saling menghubungi (chat/telepon) melalui aplikasi tanpa membuka nomor pribadi. |
+
+Catatan FR-040: repeat booking menyalin layanan, area, alamat, detail, dan jumlah unit dari booking sebelumnya, tetapi harga dihitung ulang dari aturan harga yang berlaku saat ini.
 
 ### 3.6 Worker Matching
 
@@ -116,6 +151,12 @@ Hak akses harus dikendalikan menggunakan role dan permission.
 | FR-047 | P0 | Sistem dapat memperluas radius pencarian jika tidak ada worker yang menerima. |
 | FR-048 | P0 | Admin dapat melakukan intervensi jika matching gagal. |
 | FR-049 | P1 | Sistem menyimpan histori matching dan alasan pemilihan worker. |
+| FR-137 | P0 | Job offer dikirim ke satu worker dalam satu waktu (urut skor tertinggi) dengan timeout 30 detik. Worker yang menolak atau timeout tidak ditawari ulang untuk booking yang sama. |
+| FR-138 | P0 | Admin dapat melihat kandidat matching beserta skor, jarak, dan status (eligible, offline, di luar radius, menolak/timeout) serta menugaskan worker secara manual. |
+
+Radius pencarian awal yang diusulkan: 5 km, diperluas ke 10 km sebelum eskalasi ke admin.
+
+Worker baru tanpa rating diberi nilai rating netral (usulan: 4,5 dari 5) dalam perhitungan skor agar tetap mendapat kesempatan.
 
 Matching score awal:
 
@@ -139,14 +180,24 @@ Bobot dapat dikonfigurasi setelah evaluasi pilot. Worker baru harus tetap memper
 | FR-055 | P0 | Customer dapat mengonfirmasi penyelesaian pekerjaan. |
 | FR-056 | P0 | Admin dapat memantau pekerjaan aktif dan bermasalah. |
 | FR-057 | P1 | Sistem menyediakan checklist pekerjaan berdasarkan kategori layanan. |
+| FR-139 | P0 | Worker tidak dapat memulai pekerjaan sebelum mengunggah foto kondisi sebelum. Worker tidak dapat menandai pekerjaan selesai sebelum foto hasil diunggah, checklist kategori lengkap (jika tersedia), dan tidak ada biaya tambahan yang menunggu persetujuan. |
+| FR-140 | P0 | Worker dapat mengubah status online/offline. Hanya worker online yang menerima job offer. |
 
-Usulan status:
+Usulan status (diselaraskan dengan mockup):
 
-`Pending Payment → Searching Worker → Worker Assigned → Accepted → On The Way → Arrived → In Progress → Waiting Approval (if applicable) → Completed`
+`Pending Payment → Searching Worker → Worker Assigned → On The Way → Arrived → In Progress → Waiting Confirmation → Completed`
 
 Status alternatif:
 
-`Cancelled`, `Rejected`, `Expired`, `Disputed`, `Failed`.
+`Cancelled`, `Disputed`, `Expired`, `Failed`.
+
+Catatan:
+
+- `Worker Assigned` sudah berarti worker menerima (atau ditugaskan admin); tidak ada status `Accepted` terpisah.
+- `Rejected` adalah status job offer, bukan status booking.
+- Persetujuan biaya tambahan adalah sub-status pada item biaya tambahan (menunggu, disetujui, ditolak), bukan status booking. Selama ada item yang menunggu, pekerjaan tidak dapat diselesaikan (FR-139).
+- `Waiting Confirmation`: worker sudah menyelesaikan pekerjaan dan menunggu konfirmasi customer. Perlu ditentukan batas waktu konfirmasi otomatis (lihat bagian 8).
+- `Disputed`: customer mengajukan komplain setelah pekerjaan selesai, sampai admin menyelesaikannya.
 
 Transisi status harus divalidasi berdasarkan role dan kondisi pekerjaan.
 
@@ -163,6 +214,9 @@ Transisi status harus divalidasi berdasarkan role dan kondisi pekerjaan.
 | FR-064 | P0 | Finance Admin dapat memantau transaksi dan payout. |
 | FR-065 | P1 | Sistem mendukung refund sesuai kebijakan. |
 | FR-066 | P1 | Sistem mendukung rekonsiliasi pembayaran dan payout. |
+| FR-141 | P0 | Worker dapat melihat saldo menunggu payout, pendapatan yang ditahan karena komplain, riwayat pekerjaan, dan riwayat payout. |
+| FR-142 | P0 | Finance Admin dapat memproses payout batch berkala untuk booking yang sudah selesai dan belum dibayar. Booking dengan status `Disputed` ditahan. |
+| FR-143 | P0 | Sebelum customer mengonfirmasi pembatalan, sistem menampilkan biaya pembatalan dan nominal refund. |
 
 Payment settlement dan payout harus menggunakan skema yang sesuai dengan ketentuan provider dan regulasi. Jangan mengasumsikan platform boleh menahan dana customer sendiri tanpa peninjauan legal dan payment compliance.
 
@@ -174,6 +228,7 @@ Payment settlement dan payout harus menggunakan skema yang sesuai dengan ketentu
 | FR-068 | P0 | Customer dapat menulis review. |
 | FR-069 | P0 | Sistem menghitung dan menampilkan rating worker. |
 | FR-070 | P1 | Admin dapat memoderasi review yang melanggar kebijakan. |
+| FR-144 | P1 | Customer dapat memilih tag ulasan cepat (mis. tepat waktu, rapi, ramah). |
 
 ### 3.10 Complaint & Warranty
 
@@ -184,6 +239,7 @@ Payment settlement dan payout harus menggunakan skema yang sesuai dengan ketentu
 | FR-073 | P0 | Admin dapat mengelola status dan penyelesaian komplain. |
 | FR-074 | P1 | Sistem mendukung kebijakan warranty berdasarkan kategori layanan. |
 | FR-075 | P1 | Sistem dapat membuat rework order jika komplain disetujui. |
+| FR-145 | P0 | Admin menyelesaikan komplain dengan salah satu hasil: rework gratis, refund, atau tolak. Hasil dan alasannya terlihat oleh customer. |
 
 Durasi warranty belum ditentukan. Kebijakan harus divalidasi per jenis layanan dan tidak boleh diasumsikan sama untuk seluruh pekerjaan.
 
@@ -196,6 +252,8 @@ Durasi warranty belum ditentukan. Kebijakan harus divalidasi per jenis layanan d
 | FR-078 | P0 | Customer menerima notifikasi penugasan worker. |
 | FR-079 | P0 | Sistem mengirim reminder jadwal pekerjaan. |
 | FR-080 | P1 | Sistem mendukung konfigurasi channel notifikasi. |
+| FR-146 | P0 | Setiap role memiliki inbox notifikasi di aplikasi dengan penanda belum dibaca. |
+| FR-147 | P1 | Customer dapat mengatur preferensi notifikasi (status pesanan, promo). |
 
 ### 3.12 Admin & Operations
 
@@ -209,6 +267,11 @@ Durasi warranty belum ditentukan. Kebijakan harus divalidasi per jenis layanan d
 | FR-086 | P0 | Admin dapat melihat ringkasan transaksi. |
 | FR-087 | P0 | Sistem mencatat aktivitas penting admin. |
 | FR-088 | P1 | Admin dapat melihat metrik operasional dan revenue. |
+| FR-148 | P0 | Dashboard admin menampilkan antrean "perlu tindakan": booking yang gagal matching, komplain terbuka, dan worker menunggu verifikasi. |
+| FR-149 | P0 | Admin dapat mencari, memfilter (status, layanan), dan memuat daftar booking secara bertahap (pagination). |
+| FR-150 | P1 | Admin dapat mengekspor daftar booking hasil filter ke CSV. |
+| FR-151 | P0 | Admin dapat melihat daftar customer beserta jumlah pesanan, total belanja, dan komplain terbuka. |
+| FR-152 | P0 | Admin dapat melihat daftar transaksi customer (pembayaran, biaya tambahan, refund) dengan referensi yang dapat ditelusuri ke booking. |
 
 ---
 
@@ -311,6 +374,35 @@ Contoh aset: AC, pompa air, panel listrik, plumbing equipment, dan peralatan ged
 4. Komplain mengikuti complaint policy.
 5. Payout mengikuti status settlement dan aturan provider.
 
+### Scheduling (proposed — DEC-039)
+
+1. Booking dapat dijadwalkan dari hari ini hingga H+4.
+2. Slot kedatangan: 08.00, 10.00, 13.00, 15.00, 17.00, masing-masing dengan rentang 2 jam.
+3. Slot hari ini yang kurang dari 1 jam dari waktu sekarang tidak dapat dipilih.
+4. Kapasitas slot ditentukan dari ketersediaan worker di area (mekanisme perhitungan: DEC-063).
+
+### Cancellation (proposed — DEC-024)
+
+1. Customer dapat membatalkan saat status `Searching Worker` atau `Worker Assigned`.
+2. Pembatalan sebelum worker ditugaskan: gratis, refund penuh.
+3. Pembatalan setelah worker ditugaskan: biaya pembatalan Rp25.000 sebagai kompensasi worker; sisanya direfund.
+4. Setelah worker dalam perjalanan, pembatalan hanya melalui admin.
+5. Pembatalan oleh admin: refund penuh.
+6. Estimasi waktu refund ditampilkan ke customer (usulan: 1–3 hari kerja, tergantung payment provider).
+
+### Warranty & Complaint (proposed — DEC-026)
+
+1. Komplain dapat diajukan dalam masa garansi 7 hari setelah pekerjaan selesai.
+2. Target respons admin: maksimal 2×24 jam.
+3. Hasil penyelesaian: rework gratis (booking baru terhubung ke booking asal), refund, atau tolak.
+4. Payout worker untuk booking dalam komplain ditahan sampai komplain diselesaikan.
+
+### Payout (proposed — DEC-037)
+
+1. Payout worker = payout snapshot + biaya tambahan yang disetujui.
+2. Payout diproses mingguan (usulan: setiap Senin) ke rekening terverifikasi.
+3. Setiap payout memiliki ID batch dan referensi transfer.
+
 ### B2B
 
 1. Setiap data bisnis terikat pada organization.
@@ -331,6 +423,14 @@ Contoh aset: AC, pompa air, panel listrik, plumbing equipment, dan peralatan ged
 ### Worker Job
 
 `Receive Offer → Accept → Travel → Arrive → Start Job → Submit Evidence → Customer Confirmation → Completion → Payout`
+
+### Matching Fallback
+
+`Rank Candidates (radius 5 km) → Offer to Top Worker (30s) → Decline/Timeout → Next Worker → No Eligible Worker → Expand Radius (10 km) → Repeat → Escalate to Admin → Manual Assignment`
+
+### Complaint
+
+`Customer Submits Complaint + Evidence → Booking Disputed → Payout Held → Admin Reviews → Rework / Refund / Reject → Customer Notified → Payout Released or Adjusted`
 
 ### Additional Cost
 
@@ -376,21 +476,73 @@ Given aset memiliki jadwal maintenance aktif, when jadwal mencapai tanggal eksek
 
 Given work order membutuhkan approval, when belum ada persetujuan, then status pekerjaan tetap menunggu approval dan tidak dapat dieksekusi.
 
+### AC-09 — Job Completion Gate
+
+Given worker sedang mengerjakan pekerjaan, when foto hasil belum diunggah, checklist belum lengkap, atau ada biaya tambahan yang menunggu persetujuan, then tombol penyelesaian tidak aktif dan sistem menampilkan alasannya.
+
+### AC-10 — Cancellation Fee
+
+Given worker sudah ditugaskan, when customer membatalkan booking, then sistem menampilkan biaya pembatalan dan nominal refund sebelum konfirmasi, dan mencatat keduanya pada booking.
+
+### AC-11 — Job Offer Timeout
+
+Given job offer dikirim ke worker, when worker tidak merespons dalam 30 detik, then offer kedaluwarsa, worker dicatat sebagai timeout, dan offer dikirim ke kandidat berikutnya.
+
+### AC-12 — Payout Hold
+
+Given booking berstatus Disputed, when Finance Admin memproses payout, then booking tersebut tidak termasuk dalam batch payout.
+
+### AC-13 — Role Access
+
+Given admin dengan role Finance Admin, when membuka halaman Harga Regional, then sistem menolak akses dan halaman tidak tampil di navigasi.
+
 ---
 
 ## 8. Dependencies & Open Decisions
 
-| Topic | Dependency / Decision |
+Semua keputusan yang masih terbuka dicatat di [decisions.md](decisions.md). Tabel ini hanya memetakan topik FRD ke ID keputusannya.
+
+| Topic | Keputusan terkait |
 |---|---|
-| Payment | Payment gateway, settlement, payout, refund |
-| Pricing | Regional price granularity dan price validation |
-| Inspection | Fee, quotation, dan approval flow |
-| Worker | Verification, skill taxonomy, safety requirements |
-| Cancellation | Cancellation window, refund, worker compensation |
-| Warranty | Per-category policy dan rework flow |
-| B2B pricing | Subscription metric dan contract pricing |
-| SLA | Business hours, pause conditions, resolution definition |
-| B2B approval | Threshold dan role hierarchy |
-| Platform | Web/mobile scope dan release strategy |
+| Payment | DEC-023, DEC-061 |
+| Pricing | DEC-009, DEC-055 |
+| Inspection | DEC-025 |
+| Worker | DEC-059 |
+| Cancellation | DEC-024 |
+| Warranty | DEC-026 |
+| Additional cost | DEC-040, DEC-041 |
+| Rework | DEC-042 |
+| Confirmation | DEC-043 |
+| Scheduling | DEC-039, DEC-063 |
+| Contact masking | DEC-062 |
+| Platform | DEC-031 |
+| B2B pricing | DEC-029 |
+| B2B approval | DEC-028 |
+| SLA | DEC-030, DEC-060 |
 
 Dokumen ini menjadi dasar functional design, backlog, dan acceptance testing. Semua requirement P0 harus memiliki acceptance criteria sebelum dinyatakan ready for development.
+---
+
+## 9. Mockup Coverage
+
+Pemetaan layar mockup interaktif (`mockup/`) ke requirement. Perbarui tabel ini setiap kali layar atau FR berubah. Pekerjaan mockup yang belum selesai dicatat di `mockup/TODO.md`.
+
+| Layar | FR terkait |
+|---|---|
+| Customer — Welcome / OTP / Registrasi | FR-001, FR-122, FR-125 |
+| Customer — Beranda | FR-019, FR-025, FR-128 |
+| Customer — Booking (3 langkah) | FR-020, FR-021, FR-034 – FR-037, FR-132, FR-133 |
+| Customer — Detail pesanan | FR-032, FR-038, FR-039, FR-055, FR-067, FR-071, FR-134, FR-135, FR-143, FR-040 |
+| Mitra — Registrasi / Status pendaftaran | FR-002, FR-008 – FR-011, FR-126, FR-127 |
+| Mitra — Pekerjaan & Job offer | FR-044 – FR-046, FR-137, FR-140 |
+| Mitra — Detail pekerjaan | FR-051 – FR-054, FR-057, FR-139 |
+| Mitra — Pendapatan | FR-063, FR-141 |
+| Admin — Login / Verifikasi email / Profil | FR-005, FR-123, FR-124 |
+| Admin — Dashboard | FR-056, FR-086, FR-148 |
+| Admin — Booking & detail | FR-048, FR-083, FR-084, FR-087, FR-138, FR-149, FR-150 |
+| Admin — Komplain | FR-073, FR-075, FR-085, FR-145 |
+| Admin — Verifikasi Mitra | FR-012 |
+| Admin — Customer | FR-081, FR-151 |
+| Admin — Transaksi & Payout | FR-064, FR-086, FR-142, FR-152 |
+| Admin — Katalog Layanan | FR-017, FR-018, FR-128, FR-129 |
+| Admin — Harga Regional | FR-024, FR-028 – FR-030, FR-130, FR-131 |

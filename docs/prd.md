@@ -3,7 +3,7 @@
 **Document status:** Draft — Updated  
 **Product:** Fixora  
 **Product direction:** On-demand Property Maintenance Marketplace → Property Maintenance Management Platform  
-**Version:** 2.0
+**Version:** 2.1
 
 ---
 
@@ -82,7 +82,7 @@ Dua segmen utama:
 | Individual Customer | Memesan layanan maintenance dengan mudah |
 | Worker | Mendapatkan dan mengelola pekerjaan |
 | Service Partner | Mengelola tim teknisi dan pekerjaan |
-| Admin / Operator | Mengelola layanan, harga, booking, dan komplain |
+| Admin / Operator | Mengelola layanan, harga, booking, dan komplain. Terdiri dari Super Admin, Operations Admin, dan Finance Admin (lihat matriks akses di FRD §2) |
 | Business Customer | Mengelola maintenance perusahaan |
 | Property Manager | Mengelola aset dan pekerjaan lintas lokasi |
 | Business Approver | Menyetujui pekerjaan dan anggaran |
@@ -403,43 +403,7 @@ Target angka belum ditetapkan. Baseline harus diperoleh dari pilot.
 
 ## 12. Open Decisions / Decision Register
 
-Status: **Proposed** berarti rekomendasi awal, belum menjadi keputusan final.
-
-| ID | Decision | Status |
-|---|---|---|
-| DEC-001 | Nama produk Fixora | Decided |
-| DEC-002 | B2C marketplace sebagai entry product | Proposed |
-| DEC-003 | B2B property maintenance sebagai arah pengembangan | Proposed |
-| DEC-004 | Launch satu kota/area terbatas | Proposed |
-| DEC-005 | Kategori awal AC, plumbing, electrical, handyman | Proposed |
-| DEC-006 | Worker terdiri dari independent, partner, specialist | Proposed |
-| DEC-007 | Harga dikelola terpusat oleh admin | Proposed |
-| DEC-008 | Harga dapat berbeda per wilayah | Decided |
-| DEC-009 | Hierarki harga sampai service zone | Proposed |
-| DEC-010 | Fallback harga zone → city → unavailable | Proposed |
-| DEC-011 | Fixed, variable, dan inspection pricing | Proposed |
-| DEC-012 | Biaya tambahan memerlukan persetujuan customer | Proposed |
-| DEC-013 | Booking menyimpan price snapshot | Proposed |
-| DEC-014 | Matching menggunakan multi-factor scoring | Proposed |
-| DEC-015 | Matching weight awal sesuai bagian 9 | Proposed |
-| DEC-016 | Commission sebagai revenue MVP | Proposed |
-| DEC-017 | Service fee sebagai revenue tambahan | Proposed |
-| DEC-018 | Emergency surcharge | Proposed |
-| DEC-019 | Customer subscription | Proposed |
-| DEC-020 | Material margin / supplier partnership | Proposed |
-| DEC-021 | B2B SaaS subscription | Proposed |
-| DEC-022 | B2B maintenance contract | Proposed |
-| DEC-023 | Payment gateway dan payout provider | TBD |
-| DEC-024 | Kebijakan cancellation dan refund | TBD |
-| DEC-025 | Inspection fee dan mekanisme quotation | TBD |
-| DEC-026 | Warranty per kategori layanan | TBD |
-| DEC-027 | Prosedur no-show dan appeal worker | Proposed |
-| DEC-028 | B2B approval workflow | Proposed |
-| DEC-029 | B2B pricing metric (lokasi/aset/user/order) | TBD |
-| DEC-030 | B2B contract scope dan SLA | TBD |
-| DEC-031 | Platform MVP: web, mobile, atau kombinasi | TBD |
-| DEC-032 | Kebijakan penyimpanan data dan retensi | TBD |
-| DEC-033 | Legal, pajak, klasifikasi worker, dan liability | TBD |
+Seluruh keputusan produk, bisnis, teknis, dan planning dicatat di satu tempat: [decisions.md](decisions.md). ID `DEC-001` – `DEC-044` yang sebelumnya ada di bagian ini tetap sama.
 
 ---
 
