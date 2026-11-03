@@ -147,7 +147,7 @@ export function WorkerProfile({ bell }) {
           {bell}
         </div>
         <div className="relative mt-4 flex items-center gap-3.5">
-          <Avatar name={me.name} size="lg" className="!h-16 !w-16 !text-xl ring-2 ring-white/20" />
+          <Avatar name={me.name} src={me.photo} size="lg" className="!h-16 !w-16 !text-xl ring-2 ring-white/20" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-lg font-extrabold">{me.name}</div>
             <div className="flex items-center gap-1 text-xs text-brand-300"><BadgeCheck size={13} /> Mitra terverifikasi</div>
@@ -186,7 +186,7 @@ export function WorkerProfile({ bell }) {
         <Menu title="Akun">
           <MenuItem icon={PhoneIcon} label="Nomor HP" value={me.phone} />
           <MenuItem icon={Mail} label="Email" value={me.email || 'Belum diisi'} onClick={() => setSheet('edit')} />
-          <MenuItem icon={Landmark} label="Rekening payout" value={me.bank || 'BCA •••• 4321'} />
+          <MenuItem icon={Landmark} label="Rekening payout" value={me.bank || 'Belum diatur'} />
         </Menu>
         <Menu title="Bantuan">
           <MenuItem icon={MessageCircle} label="Hubungi tim mitra" value="Senin–Sabtu, 08.00–20.00" />
@@ -206,11 +206,11 @@ export function WorkerProfile({ bell }) {
 
 // Mitra yang baru mendaftar: belum bisa menerima pekerjaan sampai diverifikasi admin
 export function WorkerPending() {
+  const { act } = useStore()
   const me = useMe('worker')
   const [logout, setLogout] = useState(false)
   const st = {
     pending: [Hourglass, 'bg-amber-500', 'Pendaftaran sedang ditinjau', 'Tim kami memverifikasi dokumenmu dalam 1–2 hari kerja. Kami kabari via WhatsApp.'],
-    verified: [BadgeCheck, 'bg-emerald-500', 'Akunmu sudah terverifikasi!', 'Selamat bergabung. Di demo ini, simulasi job offer hanya berjalan untuk akun demo Budi Santoso.'],
     revision: [FileText, 'bg-amber-500', 'Dokumen perlu diperbaiki', me.note || 'Tim kami meminta perbaikan dokumen. Unggah ulang di bawah.'],
     rejected: [XCircle, 'bg-rose-500', 'Pendaftaran belum disetujui', me.note || 'Dokumen belum memenuhi syarat. Silakan daftar ulang dengan dokumen yang valid.'],
   }[me.verified] || []
@@ -224,7 +224,7 @@ export function WorkerPending() {
           <div className="relative overflow-hidden rounded-b-[32px] bg-slate-900 px-5 pb-8 pt-4 text-white">
             <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand-500/20 blur-2xl" />
             <div className="relative flex items-center gap-3">
-              <Avatar name={me.name} size="md" className="ring-2 ring-white/20" />
+              <Avatar name={me.name} src={me.photo} size="md" className="ring-2 ring-white/20" />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-bold">{me.name}</div>
                 <div className="text-[11px] text-slate-400">{me.phone}</div>
@@ -249,6 +249,14 @@ export function WorkerPending() {
               </ol>
             </Card>
             {me.verified === 'revision' && <ResubmitDocs me={me} />}
+            {/* Pintasan demo: verifikasi asli dilakukan admin di Admin Ops → Mitra */}
+            {me.verified === 'pending' && (
+              <Card className="space-y-2.5 !border-dashed !border-brand-300 !bg-brand-50/40">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-brand-700">Mode demo</div>
+                <div className="text-[13px] text-slate-600">Lewati antrean verifikasi untuk mencoba aplikasi mitra, atau setujui dari Admin Ops → Mitra.</div>
+                <Btn className="w-full" icon={BadgeCheck} onClick={() => act.verify(me.id, 'verified', null)}>Setujui verifikasi (demo)</Btn>
+              </Card>
+            )}
             <Menu title="Data pendaftaran">
               <MenuItem icon={Wrench} label="Keahlian" value={me.skills.map((s) => svcOf(s).name).join(', ')} right={false} />
               <MenuItem icon={MapPin} label="Area" value={me.areas.join(', ')} right={false} />

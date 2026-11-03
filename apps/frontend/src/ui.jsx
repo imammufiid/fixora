@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Snowflake, Droplets, Zap, Hammer, Bell, ChevronLeft, ChevronRight, X, Camera, Star, Inbox, LoaderCircle } from 'lucide-react'
-import { STATUS, fmtTime, useStore } from './store'
+import { Snowflake, Droplets, Zap, Hammer, PaintRoller, WashingMachine, Refrigerator, Sparkles, Sofa, Bug, Sprout, Tv, KeyRound, Fan, Wrench, Flame, Microwave, Shirt, Car, Bath, Bell, ChevronLeft, ChevronRight, X, Camera, Star, Inbox, LoaderCircle } from 'lucide-react'
+import { STATUS, fmtTime, useStore, svcOf } from './store'
 
 export const cx = (...c) => c.filter(Boolean).join(' ')
 
@@ -19,21 +19,52 @@ export const TONE = {
   brand: { soft: 'bg-brand-50 text-brand-700 ring-brand-200', dot: 'bg-brand-500', solid: 'bg-brand-600' },
 }
 
-export const SVC_STYLE = {
-  ac: { Icon: Snowflake, tile: 'bg-sky-50 text-sky-600', solid: 'from-sky-400 to-sky-600' },
-  plumb: { Icon: Droplets, tile: 'bg-cyan-50 text-cyan-600', solid: 'from-cyan-400 to-teal-600' },
-  elec: { Icon: Zap, tile: 'bg-amber-50 text-amber-600', solid: 'from-amber-400 to-orange-500' },
-  handy: { Icon: Hammer, tile: 'bg-orange-50 text-orange-600', solid: 'from-orange-400 to-rose-500' },
+// Ikon yang bisa dipilih admin untuk layanan baru, masing-masing dengan warna bawaan
+export const SVC_ICONS = {
+  Snowflake: [Snowflake, 'sky'], Droplets: [Droplets, 'cyan'], Zap: [Zap, 'amber'], Hammer: [Hammer, 'orange'], PaintRoller: [PaintRoller, 'violet'],
+  WashingMachine: [WashingMachine, 'indigo'], Refrigerator: [Refrigerator, 'teal'], Tv: [Tv, 'indigo'], Microwave: [Microwave, 'orange'], Fan: [Fan, 'sky'],
+  Sparkles: [Sparkles, 'emerald'], Sofa: [Sofa, 'rose'], Shirt: [Shirt, 'fuchsia'], Bath: [Bath, 'cyan'], Bug: [Bug, 'lime'], Sprout: [Sprout, 'green'],
+  KeyRound: [KeyRound, 'amber'], Flame: [Flame, 'rose'], Car: [Car, 'slate'], Wrench: [Wrench, 'slate'],
+}
+const SVC_TONE = {
+  sky: { tile: 'bg-sky-50 text-sky-600', solid: 'from-sky-400 to-sky-600' },
+  cyan: { tile: 'bg-cyan-50 text-cyan-600', solid: 'from-cyan-400 to-teal-600' },
+  amber: { tile: 'bg-amber-50 text-amber-600', solid: 'from-amber-400 to-orange-500' },
+  orange: { tile: 'bg-orange-50 text-orange-600', solid: 'from-orange-400 to-rose-500' },
+  violet: { tile: 'bg-violet-50 text-violet-600', solid: 'from-violet-400 to-purple-600' },
+  indigo: { tile: 'bg-indigo-50 text-indigo-600', solid: 'from-indigo-400 to-indigo-600' },
+  teal: { tile: 'bg-teal-50 text-teal-600', solid: 'from-teal-400 to-emerald-600' },
+  emerald: { tile: 'bg-emerald-50 text-emerald-600', solid: 'from-emerald-400 to-emerald-600' },
+  rose: { tile: 'bg-rose-50 text-rose-600', solid: 'from-rose-400 to-pink-600' },
+  fuchsia: { tile: 'bg-fuchsia-50 text-fuchsia-600', solid: 'from-fuchsia-400 to-fuchsia-600' },
+  lime: { tile: 'bg-lime-50 text-lime-700', solid: 'from-lime-500 to-green-600' },
+  green: { tile: 'bg-green-50 text-green-600', solid: 'from-green-400 to-green-600' },
+  slate: { tile: 'bg-slate-100 text-slate-600', solid: 'from-slate-500 to-slate-700' },
 }
 
-export function SvcIcon({ id, size = 'md', solid = false, className = '' }) {
-  const s = SVC_STYLE[id]
+export function SvcIcon({ id, icon, size = 'md', solid = false, className = '' }) {
+  const [Icon, tone] = SVC_ICONS[icon || svcOf(id)?.icon] || SVC_ICONS.Wrench
+  const s = SVC_TONE[tone]
   const dim = { sm: 'w-8 h-8 rounded-lg', md: 'w-10 h-10 rounded-xl', lg: 'w-12 h-12 rounded-2xl', xl: 'w-14 h-14 rounded-2xl' }[size]
   const ic = { sm: 16, md: 20, lg: 24, xl: 28 }[size]
   return (
     <span className={cx('inline-flex shrink-0 items-center justify-center', dim, solid ? `bg-gradient-to-br text-white ${s.solid}` : s.tile, className)}>
-      <s.Icon size={ic} strokeWidth={2.2} />
+      <Icon size={ic} strokeWidth={2.2} />
     </span>
+  )
+}
+
+// Chip filter kategori yang bisa di-scroll horizontal — tetap rapi berapa pun jumlah kategorinya
+export function CatChips({ value, onChange, options }) {
+  return (
+    <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5">
+      {options.map(([id, label, n]) => (
+        <button key={id} type="button" onClick={() => onChange(id)} className={cx('shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold ring-1 transition', value === id ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-300')}>
+          {label}
+          {n != null && <span className={cx('ml-1.5 text-[11px]', value === id ? 'text-brand-100' : 'text-slate-400')}>{n}</span>}
+        </button>
+      ))}
+    </div>
   )
 }
 

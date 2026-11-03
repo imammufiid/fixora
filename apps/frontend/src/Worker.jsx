@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Briefcase, Wallet, Star, CheckCircle2, MapPin, CalendarDays, Navigation, Phone as PhoneIcon, Check, Plus, Clock, Power, BadgeCheck, ChevronRight, Hourglass, Landmark, TrendingUp, Camera, ListChecks, Receipt, AlertTriangle, CircleUser } from 'lucide-react'
-import { useStore, useMe, ME, FLOW, STATUS, svcOf, areaOf, rp, fmtDate, extrasTotal, unpaid, held } from './store'
+import { useStore, useMe, FLOW, STATUS, svcOf, areaOf, rp, fmtDate, extrasTotal, unpaid, held } from './store'
 import { WorkerProfile, WorkerPending } from './Profile'
 import { Screen, Btn, Badge, Card, Field, Row, Sheet, Empty, PhotoInput, Thumbs, SvcIcon, Avatar, SectionTitle, Pill, inputCls, cx } from './ui'
 
@@ -17,8 +17,8 @@ export default function Worker() {
   const [tab, setTab] = useState('jobs')
   const [open, setOpen] = useState(null)
   const me = useMe('worker')
-  // Simulasi job offer hanya untuk akun demo; akun lain melihat status verifikasi
-  if (me.id !== ME) return <WorkerPending />
+  // Mitra yang belum terverifikasi hanya melihat status pendaftarannya
+  if (me.verified !== 'verified') return <WorkerPending />
   if (open) return <JobDetail id={open} onBack={() => setOpen(null)} />
   return (
     <Screen role="worker" immersive="bg-slate-900" tabs={TABS} tab={tab} onTab={setTab}>
@@ -29,12 +29,12 @@ export default function Worker() {
 
 function Header({ bell, children }) {
   const { state, act } = useStore()
-  const me = state.workers.find((w) => w.id === ME)
+  const me = useMe('worker')
   return (
     <div className="relative overflow-hidden rounded-b-[32px] bg-slate-900 px-5 pb-6 pt-4 text-white">
       <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand-500/20 blur-2xl" />
       <div className="relative flex items-center gap-3">
-        <Avatar name={me.name} size="md" className="ring-2 ring-white/20" />
+        <Avatar name={me.name} src={me.photo} size="md" className="ring-2 ring-white/20" />
         <div className="min-w-0 flex-1">
           <div className="truncate font-bold">{me.name}</div>
           <div className="flex items-center gap-1 text-[11px] text-brand-300"><BadgeCheck size={12} /> Mitra terverifikasi</div>
@@ -42,13 +42,13 @@ function Header({ bell, children }) {
         {bell}
       </div>
       <button
-        onClick={() => act.toggleOnline(ME)}
+        onClick={() => act.toggleOnline(me.id)}
         className={cx('relative mt-4 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left ring-1 transition', me.online ? 'bg-emerald-500/15 ring-emerald-400/30' : 'bg-white/5 ring-white/10')}
       >
         <span className={cx('flex h-9 w-9 items-center justify-center rounded-xl', me.online ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-400')}><Power size={18} /></span>
         <div className="flex-1">
           <div className="text-sm font-bold">{me.online ? 'Kamu sedang online' : 'Kamu sedang offline'}</div>
-          <div className="text-[11px] text-slate-400">{me.online ? 'Siap menerima job offer di Jakarta Selatan' : 'Aktifkan untuk mulai menerima pekerjaan'}</div>
+          <div className="text-[11px] text-slate-400">{me.online ? `Siap menerima job offer di ${me.areas.join(', ')}` : 'Aktifkan untuk mulai menerima pekerjaan'}</div>
         </div>
         <span className={cx('relative h-6 w-11 rounded-full transition', me.online ? 'bg-emerald-500' : 'bg-slate-600')}>
           <span className={cx('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', me.online ? 'left-[22px]' : 'left-0.5')} />
@@ -61,13 +61,13 @@ function Header({ bell, children }) {
 
 function Jobs({ bell, onOpen }) {
   const { state } = useStore()
-  const me = state.workers.find((w) => w.id === ME)
-  const offers = state.bookings.filter((b) => b.offer?.workerId === ME)
-  const active = state.bookings.filter((b) => b.workerId === ME && FLOW.includes(b.status)).sort((a, b) => a.schedule - b.schedule)
+  const me = useMe('worker')
+  const offers = state.bookings.filter((b) => b.offer?.workerId === me.id)
+  const active = state.bookings.filter((b) => b.workerId === me.id && FLOW.includes(b.status)).sort((a, b) => a.schedule - b.schedule)
   const stats = [
     [Star, 'Rating', me.rating.toFixed(2)],
     [CheckCircle2, 'Selesai', me.jobs],
-    [MapPin, 'Area', 'Jaksel'],
+    [MapPin, 'Area', me.areas.length > 1 ? `${me.areas.length} kota` : me.areas[0]],
   ]
   return (
     <div className="pb-6">
@@ -135,7 +135,7 @@ function Countdown({ left }) {
 
 function OfferCard({ b }) {
   const { state, now, act } = useStore()
-  const me = state.workers.find((w) => w.id === ME)
+  const me = useMe('worker')
   const svc = svcOf(b.svc)
   const left = Math.min(OFFER_SECONDS, Math.max(0, Math.ceil((b.offer.expiresAt - now) / 1000)))
   return (
@@ -170,8 +170,8 @@ function OfferCard({ b }) {
         </div>
         <div className="rounded-xl border border-slate-100 p-3 text-[13px] text-slate-600">“{b.detail}”</div>
         <div className="flex gap-2">
-          <Btn variant="secondary" size="lg" className="flex-1" onClick={() => act.decline(b.id, ME, 'ditolak')}>Tolak</Btn>
-          <Btn size="lg" className="flex-[2]" icon={Check} onClick={() => act.accept(b.id, ME, 'Worker')}>Terima pekerjaan</Btn>
+          <Btn variant="secondary" size="lg" className="flex-1" onClick={() => act.decline(b.id, me.id, 'ditolak')}>Tolak</Btn>
+          <Btn size="lg" className="flex-[2]" icon={Check} onClick={() => act.accept(b.id, me.id, 'Worker')}>Terima pekerjaan</Btn>
         </div>
       </div>
     </div>
@@ -180,11 +180,12 @@ function OfferCard({ b }) {
 
 function Earnings({ bell }) {
   const { state } = useStore()
-  const done = state.bookings.filter((b) => b.workerId === ME && ['completed', 'disputed'].includes(b.status))
-  const total = unpaid(state, ME).reduce((s, b) => s + earnOf(b), 0)
-  const onHold = held(state, ME).reduce((s, b) => s + earnOf(b), 0)
+  const me = useMe('worker')
+  const done = state.bookings.filter((b) => b.workerId === me.id && ['completed', 'disputed'].includes(b.status))
+  const total = unpaid(state, me.id).reduce((s, b) => s + earnOf(b), 0)
+  const onHold = held(state, me.id).reduce((s, b) => s + earnOf(b), 0)
   const extras = done.reduce((s, b) => s + extrasTotal(b), 0)
-  const payouts = state.payouts.filter((p) => p.workerId === ME)
+  const payouts = state.payouts.filter((p) => p.workerId === me.id)
   return (
     <div className="pb-6">
       <div className="relative overflow-hidden rounded-b-[32px] bg-slate-900 px-5 pb-6 pt-4 text-white">

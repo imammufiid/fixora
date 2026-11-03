@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import {
   Home as HomeIcon, ClipboardList, MapPin, ChevronDown, ChevronRight, Search, ShieldCheck, BadgeCheck, Wallet, Sparkles, Clock, CalendarDays,
-  QrCode, Landmark, Minus, Plus, Check, MessageCircle, Phone as PhoneIcon, Star, AlertTriangle, CircleCheck, Info, Bike, House, Receipt, History, FileText, XCircle, CircleUser, RotateCcw,
+  QrCode, Landmark, Minus, Plus, Check, MessageCircle, Phone as PhoneIcon, Star, AlertTriangle, CircleCheck, Info, Bike, House, Receipt, History, FileText, XCircle, CircleUser, RotateCcw, Bell, LayoutGrid, X, SearchX,
 } from 'lucide-react'
-import { useStore, useMe, SERVICES, AREAS, svcOf, areaOf, resolvePrice, calcPrice, rp, fmtDate, fmtTime, dayAt, STATUS, ACTIVE, totalOf } from './store'
+import { useStore, useMe, AREAS, svcOf, areaOf, svcAvailable, groupByCat, matchSvc, resolvePrice, calcPrice, rp, fmtDate, fmtTime, dayAt, STATUS, ACTIVE, totalOf } from './store'
 import { CustomerProfile } from './Profile'
-import { Screen, Btn, Badge, Card, Field, Row, Sheet, Segment, Empty, Spinner, PhotoInput, Thumbs, Stars, SvcIcon, Avatar, SectionTitle, Pill, inputCls, cx } from './ui'
+import { Screen, Btn, Badge, Card, Field, Row, Sheet, Segment, Empty, Spinner, PhotoInput, Thumbs, Stars, SvcIcon, CatChips, Avatar, SectionTitle, Pill, inputCls, cx } from './ui'
 
 const TABS = [
   { id: 'home', icon: HomeIcon, label: 'Beranda' },
@@ -29,6 +29,8 @@ export default function Customer() {
   const [area, setArea] = useState('kby')
   const open = (id) => setScreen({ name: 'detail', id })
 
+  const book = (svc) => setScreen({ name: 'book', svc })
+  if (screen?.name === 'catalog') return <Catalog area={area} initialCat={screen.cat} onBack={() => setScreen(null)} onBook={book} />
   if (screen?.name === 'book') return <BookingFlow svcId={screen.svc} area={screen.prefill?.area || area} prefill={screen.prefill} onBack={() => setScreen(null)} onDone={open} />
   if (screen?.name === 'detail') return <BookingDetail id={screen.id} onBack={() => { setScreen(null); setTab('orders') }} onRebook={(b) => setScreen({ name: 'book', svc: b.svc, prefill: b })} />
   if (tab === 'orders')
@@ -45,16 +47,25 @@ export default function Customer() {
     )
   return (
     <Screen role="customer" immersive="bg-brand-700" tabs={TABS} tab={tab} onTab={setTab}>
-      {(bell) => <Home area={area} setArea={setArea} bell={bell} onBook={(svc) => setScreen({ name: 'book', svc })} onOpen={open} />}
+      {(bell) => <Home area={area} setArea={setArea} bell={bell} onBook={book} onOpen={open} onCatalog={(cat) => setScreen({ name: 'catalog', cat })} />}
     </Screen>
   )
 }
 
-function Home({ area, setArea, bell, onBook, onOpen }) {
+// Jumlah layanan populer di beranda; sisanya lewat "Lihat semua" agar beranda tetap ringkas berapa pun ukuran katalog
+const POPULAR = 7
+
+function Home({ area, setArea, bell, onBook, onOpen, onCatalog }) {
   const { state } = useStore()
   const me = useMe('customer')
+  const [q, setQ] = useState('')
   const active = state.bookings.filter((b) => b.customer === me.name && ACTIVE.includes(b.status))
   const a = areaOf(area)
+  const demand = (id) => state.bookings.filter((b) => b.svc === id).length
+  const available = state.services.filter((s) => svcAvailable(state, s.id, area))
+  const popular = [...available].sort((x, y) => demand(y.id) - demand(x.id)).slice(0, POPULAR)
+  const groups = groupByCat(state.categories, state.services)
+  const results = q.trim() && byAvailability(state, area, state.services.filter((s) => matchSvc(s, q)))
   return (
     <div className="pb-6">
       <div className="relative overflow-hidden rounded-b-[32px] bg-gradient-to-b from-brand-700 to-brand-600 px-5 pb-20 pt-4 text-white">
@@ -84,37 +95,61 @@ function Home({ area, setArea, bell, onBook, onOpen }) {
       </div>
 
       <div className="relative -mt-14 space-y-5 px-4">
-        <div className="flex items-center gap-2.5 rounded-2xl bg-white px-4 py-3.5 text-sm text-slate-400 shadow-lift">
-          <Search size={18} />
-          Cari layanan, mis. “AC tidak dingin”
-        </div>
+        <SearchBox value={q} onChange={setQ} className="shadow-lift" />
 
-        {active.map((b) => <ActiveCard key={b.id} b={b} onOpen={onOpen} />)}
-
-        <div>
-          <SectionTitle>Butuh perbaikan apa?</SectionTitle>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            {SERVICES.map((s) => {
-              const off = state.svcOff.includes(s.id)
-              const rule = !off && resolvePrice(state.prices, s.id, area)
-              return (
-                <button
-                  key={s.id}
-                  disabled={!rule}
-                  onClick={() => onBook(s.id)}
-                  className="group rounded-2xl border border-slate-200/70 bg-white p-3.5 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lift disabled:translate-y-0 disabled:opacity-55 disabled:hover:border-slate-200/70 disabled:hover:shadow-soft"
-                >
-                  <SvcIcon id={s.id} size="lg" />
-                  <div className="mt-3 text-sm font-bold">{s.name}</div>
-                  <div className="mt-0.5 line-clamp-2 h-8 text-[11px] leading-4 text-slate-500">{s.desc}</div>
-                  <div className={cx('mt-2.5 text-xs font-bold', rule ? 'text-brand-700' : 'text-slate-400')}>
-                    {rule ? <>Mulai {rp(rule.price)}</> : off ? 'Sementara tidak tersedia' : 'Belum tersedia di area ini'}
-                  </div>
-                </button>
-              )
-            })}
+        {results ? (
+          <div className="space-y-2">
+            <div className="px-1 text-xs font-semibold text-slate-500">{results.length} layanan untuk “{q.trim()}”</div>
+            {results.length === 0 && <Card><Empty icon={SearchX} title="Layanan tidak ditemukan" text="Coba kata kunci lain, atau jelajahi semua kategori." /></Card>}
+            {results.map((s) => <SvcRow key={s.id} s={s} area={area} onBook={onBook} />)}
           </div>
-        </div>
+        ) : (
+          <>
+            {active.map((b) => <ActiveCard key={b.id} b={b} onOpen={onOpen} />)}
+
+            <div>
+              <SectionTitle action={<button onClick={() => onCatalog()} className="text-xs font-bold text-brand-700">Lihat semua</button>}>Butuh perbaikan apa?</SectionTitle>
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {popular.map((s) => {
+                  const rule = resolvePrice(state.prices, s.id, area)
+                  return (
+                    <button key={s.id} onClick={() => onBook(s.id)} className="flex flex-col items-center rounded-2xl bg-white px-1 pb-2.5 pt-3 text-center shadow-soft ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-lift hover:ring-brand-300">
+                      <SvcIcon id={s.id} size="lg" />
+                      <span className="mt-2 line-clamp-2 min-h-7 text-[11px] font-bold leading-[14px]">{s.name}</span>
+                      <span className="mt-0.5 text-[10px] font-semibold text-brand-700">{rp(rule.price / 1000)}rb</span>
+                    </button>
+                  )
+                })}
+                <button onClick={() => onCatalog()} className="flex flex-col items-center rounded-2xl bg-white px-1 pb-2.5 pt-3 text-center shadow-soft ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-lift hover:ring-brand-300">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-600"><LayoutGrid size={22} /></span>
+                  <span className="mt-2 min-h-7 text-[11px] font-bold leading-[14px]">Semua layanan</span>
+                  <span className="mt-0.5 text-[10px] font-semibold text-slate-400">{state.services.length} layanan</span>
+                </button>
+              </div>
+              {available.length === 0 && <div className="mt-3 rounded-2xl bg-white p-4 text-center text-xs text-slate-500 shadow-soft">Belum ada layanan di area ini. Buka <b>Semua layanan</b> untuk minta dikabari saat tersedia.</div>}
+            </div>
+
+            <div>
+              <SectionTitle>Jelajahi kategori</SectionTitle>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {groups.map((g) => {
+                  const n = g.items.filter((s) => svcAvailable(state, s.id, area)).length
+                  return (
+                    <button key={g.id} onClick={() => onCatalog(g.id)} className="flex items-center gap-2.5 rounded-2xl bg-white p-3 text-left shadow-soft ring-1 ring-slate-200/70 transition hover:ring-brand-300">
+                      <div className="flex -space-x-2">
+                        {g.items.slice(0, 2).map((s) => <SvcIcon key={s.id} id={s.id} size="sm" className="ring-2 ring-white" />)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-bold">{g.name}</div>
+                        <div className="text-[11px] text-slate-500">{n ? `${n} tersedia` : 'Segera hadir'}</div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="relative overflow-hidden rounded-2xl bg-slate-900 p-4 text-white">
           <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-brand-500/30 blur-xl" />
@@ -139,6 +174,75 @@ function Home({ area, setArea, bell, onBook, onOpen }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// Yang bisa dipesan tampil lebih dulu
+const byAvailability = (state, area, list) => [...list].sort((x, y) => svcAvailable(state, y.id, area) - svcAvailable(state, x.id, area))
+
+function SearchBox({ value, onChange, className = '' }) {
+  return (
+    <label className={cx('flex items-center gap-2.5 rounded-2xl bg-white px-4 py-3 text-sm ring-1 ring-slate-200/70 focus-within:ring-2 focus-within:ring-brand-500/40', className)}>
+      <Search size={18} className="shrink-0 text-slate-400" />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Cari layanan, mis. “AC tidak dingin”" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400" />
+      {value && <button type="button" onClick={() => onChange('')} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>}
+    </label>
+  )
+}
+
+function SvcRow({ s, area, onBook }) {
+  const { state, act } = useStore()
+  const me = useMe('customer')
+  const off = state.svcOff.includes(s.id)
+  const rule = !off && resolvePrice(state.prices, s.id, area)
+  const asked = state.requests.some((r) => r.svc === s.id && r.area === area && r.customer === me.name)
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-white p-3 shadow-soft">
+      <button disabled={!rule} onClick={() => onBook(s.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default">
+        <SvcIcon id={s.id} className={cx(!rule && 'opacity-50 grayscale')} />
+        <div className="min-w-0 flex-1">
+          <div className={cx('truncate text-sm font-bold', !rule && 'text-slate-500')}>{s.name}</div>
+          <div className="truncate text-[11px] text-slate-500">{s.desc}</div>
+          <div className={cx('mt-0.5 text-xs font-bold', rule ? 'text-brand-700' : 'text-slate-400')}>
+            {rule ? <>Mulai {rp(rule.price)}</> : off ? 'Sementara tidak tersedia' : 'Belum tersedia di area ini'}
+          </div>
+        </div>
+      </button>
+      {rule ? (
+        <ChevronRight size={18} className="text-slate-300" />
+      ) : off ? null : asked ? (
+        <Pill tone="brand"><Check size={11} strokeWidth={3} /> Diminta</Pill>
+      ) : (
+        <Btn size="sm" variant="soft" icon={Bell} onClick={() => act.requestService(s.id, area, me.name)}>Kabari saya</Btn>
+      )}
+    </div>
+  )
+}
+
+function Catalog({ area, initialCat, onBack, onBook }) {
+  const { state } = useStore()
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState(initialCat || 'all')
+  const a = areaOf(area)
+  const all = groupByCat(state.categories, state.services)
+  const groups = groupByCat(state.categories, state.services.filter((s) => matchSvc(s, q) && (cat === 'all' || s.cat === cat)))
+  const n = state.services.filter((s) => svcAvailable(state, s.id, area)).length
+  return (
+    <Screen role="customer" title="Semua layanan" subtitle={`${a.name} · ${n} dari ${state.services.length} layanan tersedia`} onBack={onBack}>
+      <SearchBox value={q} onChange={setQ} />
+      <CatChips value={cat} onChange={setCat} options={[['all', 'Semua', state.services.length], ...all.map((g) => [g.id, g.name, g.items.length])]} />
+      {groups.length === 0 && <Empty icon={SearchX} title="Layanan tidak ditemukan" text="Coba kata kunci lain atau pilih kategori berbeda." />}
+      {groups.map((g) => (
+        <div key={g.id} className="space-y-2 pt-1">
+          <div className="px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">{g.name}</div>
+          {byAvailability(state, area, g.items).map((s) => <SvcRow key={s.id} s={s} area={area} onBook={onBook} />)}
+        </div>
+      ))}
+      <div className="flex gap-2.5 rounded-2xl bg-brand-50 p-3.5 text-xs leading-relaxed text-brand-800">
+        <Info size={16} className="mt-0.5 shrink-0" />
+        Layanan yang belum tersedia di areamu? Tekan <b>Kabari saya</b> — permintaanmu membantu kami menentukan layanan berikutnya.
+      </div>
+    </Screen>
   )
 }
 

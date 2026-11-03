@@ -77,7 +77,7 @@ Fixora dikembangkan melalui empat fase.
 - Worker onboarding procedure.
 - Business model dan unit economics assumptions.
 - Finalized MVP scope.
-- UX/UI prototype — draft interaktif tersedia di `mockup/` (aplikasi customer, aplikasi mitra, admin console). Pemetaan layar ke requirement ada di FRD §9.
+- UX/UI prototype — draft interaktif tersedia di `apps/frontend/` (aplikasi customer, aplikasi mitra, admin console). Pemetaan layar ke requirement ada di FRD §9.
 - Development backlog.
 - Risk register.
 

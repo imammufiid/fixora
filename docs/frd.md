@@ -2,7 +2,7 @@
 
 **Document status:** Draft — Updated  
 **Version:** 2.1  
-**Related document:** PRD v2.1, mockup interaktif (`mockup/`)
+**Related document:** PRD v2.1, mockup interaktif (`apps/frontend/`)
 
 ---
 
@@ -525,7 +525,7 @@ Dokumen ini menjadi dasar functional design, backlog, dan acceptance testing. Se
 
 ## 9. Mockup Coverage
 
-Pemetaan layar mockup interaktif (`mockup/`) ke requirement. Perbarui tabel ini setiap kali layar atau FR berubah. Pekerjaan mockup yang belum selesai dicatat di `mockup/TODO.md`.
+Pemetaan layar mockup interaktif (`apps/frontend/`) ke requirement. Perbarui tabel ini setiap kali layar atau FR berubah. Pekerjaan mockup yang belum selesai dicatat di `apps/frontend/TODO.md`.
 
 | Layar | FR terkait |
 |---|---|

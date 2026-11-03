@@ -1,0 +1,15 @@
+{
+  "name": "fixora",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --if-present dev",
+    "build": "pnpm -r --if-present build",
+    "frontend:dev": "pnpm --filter fixora-frontend dev",
+    "frontend:build": "pnpm --filter fixora-frontend build"
+  }
+}

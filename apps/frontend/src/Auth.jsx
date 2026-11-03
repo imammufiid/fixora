@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ShieldCheck, BadgeCheck, Receipt, Wallet, Briefcase, Clock, Check, FileText, Upload, Sparkles, Zap } from 'lucide-react'
-import { useStore, useMe, SERVICES, OTP_CODE, digits, fmtPhone } from './store'
+import { ChevronLeft, ShieldCheck, BadgeCheck, Receipt, Wallet, Briefcase, Clock, Check, FileText, Upload, Sparkles, Zap, Search, X, Camera } from 'lucide-react'
+import { useStore, useMe, OTP_CODE, AREAS, SERVICE_CITIES, groupByCat, matchSvc, digits, fmtPhone } from './store'
 import { Screen, Btn, Field, SvcIcon, Spinner, inputCls, cx } from './ui'
 
 const THEME = {
@@ -69,6 +69,7 @@ function AuthFlow({ role }) {
 }
 
 function Welcome({ role, onStart, onDemo }) {
+  const { state } = useStore()
   const t = THEME[role]
   return (
     <Screen immersive={t.safe} bg="bg-white">
@@ -81,7 +82,7 @@ function Welcome({ role, onStart, onDemo }) {
             <span className="text-lg font-extrabold tracking-tight">{t.app}</span>
           </div>
           <div className="relative mt-10 flex gap-2">
-            {SERVICES.map((s, i) => (
+            {state.services.slice(0, 5).map((s, i) => (
               <span key={s.id} className="animate-pop" style={{ animationDelay: `${i * 80}ms` }}>
                 <SvcIcon id={s.id} size="lg" solid className="shadow-lg ring-4 ring-white/10" />
               </span>
@@ -237,12 +238,14 @@ function RegisterCustomer({ phone }) {
   )
 }
 
-const CITIES = ['Jakarta Selatan', 'Bekasi']
+const LIVE_CITIES = new Set(AREAS.map((a) => a.city))
 const DOCS = [['KTP', 'Wajib'], ['SKCK', 'Wajib'], ['Sertifikat keahlian', 'Opsional']]
 
 function RegisterWorker({ phone }) {
-  const { act } = useStore()
-  const [f, setF] = useState({ name: '', email: '', skills: [], areas: ['Jakarta Selatan'], docs: [] })
+  const { state, act } = useStore()
+  const [sq, setSq] = useState('')
+  const [aq, setAq] = useState('')
+  const [f, setF] = useState({ name: '', email: '', skills: [], areas: ['Jakarta Selatan'], docs: [], photo: null })
   const [err, setErr] = useState({})
   const [step, setStep] = useState(1)
   const toggle = (k, v) => setF({ ...f, [k]: f[k].includes(v) ? f[k].filter((x) => x !== v) : [...f[k], v] })
@@ -252,11 +255,14 @@ function RegisterWorker({ phone }) {
       if (f.name.trim().length < 3) er.name = 'Nama minimal 3 karakter'
       if (!f.skills.length) er.skills = 'Pilih minimal 1 keahlian'
       if (!f.areas.length) er.areas = 'Pilih minimal 1 area'
-    } else if (!['KTP', 'SKCK'].every((d) => f.docs.includes(d))) er.docs = 'KTP dan SKCK wajib diunggah'
+    } else {
+      if (!f.photo) er.photo = 'Foto diri wajib diunggah'
+      if (!['KTP', 'SKCK'].every((d) => f.docs.includes(d))) er.docs = 'KTP dan SKCK wajib diunggah'
+    }
     setErr(er)
     if (Object.keys(er).length) return
     if (step === 1) setStep(2)
-    else act.registerWorker({ name: f.name.trim(), email: f.email, skills: f.skills, areas: f.areas, docs: f.docs, phone: fmtPhone('0' + norm(phone)) })
+    else act.registerWorker({ name: f.name.trim(), email: f.email, skills: f.skills, areas: f.areas, docs: f.docs, photo: f.photo, phone: fmtPhone('0' + norm(phone)) })
   }
 
   return (
@@ -274,34 +280,91 @@ function RegisterWorker({ phone }) {
             <Field label="Email (opsional)"><input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="nama@email.com" className={inputCls} /></Field>
             <div className="space-y-2">
               <div className="text-[13px] font-semibold text-slate-700">Keahlian</div>
-              <div className="grid grid-cols-2 gap-2">
-                {SERVICES.map((s) => {
-                  const on = f.skills.includes(s.id)
-                  return (
-                    <button key={s.id} type="button" onClick={() => toggle('skills', s.id)} className={cx('flex items-center gap-2.5 rounded-2xl border p-2.5 text-left text-sm font-semibold transition', on ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/15' : 'border-slate-200 bg-white hover:border-slate-300')}>
-                      <SvcIcon id={s.id} size="sm" />
-                      <span className="flex-1">{s.name}</span>
-                      {on && <Check size={15} className="text-brand-600" strokeWidth={3} />}
-                    </button>
-                  )
-                })}
+              {/* Katalog bisa panjang: cari + kelompokkan per kategori. Layanan tanpa mitra ditandai agar calon mitra tahu peluangnya. */}
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-within:border-brand-500 focus-within:ring-4 focus-within:ring-brand-500/15">
+                <Search size={16} className="text-slate-400" />
+                <input value={sq} onChange={(e) => setSq(e.target.value)} placeholder="Cari keahlian, mis. kulkas" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400" />
+                {sq && <button type="button" onClick={() => setSq('')} className="text-slate-400"><X size={15} /></button>}
+              </label>
+              {f.skills.length > 0 && <div className="text-xs font-semibold text-brand-700">{f.skills.length} keahlian dipilih</div>}
+              <div className="max-h-80 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
+                {groupByCat(state.categories, state.services.filter((s) => !state.svcOff.includes(s.id) && matchSvc(s, sq))).map((g) => (
+                  <div key={g.id} className="space-y-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{g.name}</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {g.items.map((s) => {
+                        const on = f.skills.includes(s.id)
+                        const needed = !state.workers.some((w) => w.verified === 'verified' && w.skills.includes(s.id))
+                        return (
+                          <button key={s.id} type="button" onClick={() => toggle('skills', s.id)} className={cx('flex items-center gap-2.5 rounded-2xl border p-2.5 text-left text-sm font-semibold transition', on ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/15' : 'border-slate-200 bg-white hover:border-slate-300')}>
+                            <SvcIcon id={s.id} size="sm" />
+                            <span className="min-w-0 flex-1 leading-tight">
+                              <span className="block truncate">{s.name}</span>
+                              {needed && <span className="text-[10px] font-bold text-amber-600">Dibutuhkan</span>}
+                            </span>
+                            {on && <Check size={15} className="shrink-0 text-brand-600" strokeWidth={3} />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {!state.services.some((s) => matchSvc(s, sq)) && <div className="py-4 text-center text-xs text-slate-400">Keahlian tidak ditemukan</div>}
               </div>
               {err.skills && <div className="text-xs font-medium text-rose-600">{err.skills}</div>}
             </div>
             <div className="space-y-2">
               <div className="text-[13px] font-semibold text-slate-700">Area layanan</div>
-              <div className="flex flex-wrap gap-2">
-                {CITIES.map((c) => (
-                  <button key={c} type="button" onClick={() => toggle('areas', c)} className={cx('rounded-full px-3.5 py-1.5 text-[13px] font-semibold ring-1 transition', f.areas.includes(c) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-300')}>
-                    {c}
-                  </button>
+              {/* Daftar kota panjang: cari + kelompokkan per provinsi. Kota yang sudah beroperasi ditandai. */}
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-within:border-brand-500 focus-within:ring-4 focus-within:ring-brand-500/15">
+                <Search size={16} className="text-slate-400" />
+                <input value={aq} onChange={(e) => setAq(e.target.value)} placeholder="Cari kota, mis. Depok" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400" />
+                {aq && <button type="button" onClick={() => setAq('')} className="text-slate-400"><X size={15} /></button>}
+              </label>
+              {f.areas.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {f.areas.map((c) => (
+                    <button key={c} type="button" onClick={() => toggle('areas', c)} className="flex items-center gap-1 rounded-full bg-brand-50 py-1 pl-2.5 pr-2 text-xs font-semibold text-brand-700 ring-1 ring-brand-200">
+                      {c} <X size={12} />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="max-h-64 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
+                {SERVICE_CITIES.map((g) => ({ ...g, cities: g.cities.filter((c) => `${c} ${g.region}`.toLowerCase().includes(aq.trim().toLowerCase())) })).filter((g) => g.cities.length).map((g) => (
+                  <div key={g.region} className="space-y-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{g.region}</div>
+                    <div className="flex flex-wrap gap-2">
+                      {g.cities.map((c) => (
+                        <button key={c} type="button" onClick={() => toggle('areas', c)} className={cx('flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold ring-1 transition', f.areas.includes(c) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-300')}>
+                          {c}
+                          {LIVE_CITIES.has(c) && <span className={cx('h-1.5 w-1.5 rounded-full', f.areas.includes(c) ? 'bg-white' : 'bg-emerald-500')} />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
+                {!SERVICE_CITIES.some((g) => g.cities.some((c) => `${c} ${g.region}`.toLowerCase().includes(aq.trim().toLowerCase()))) && <div className="py-4 text-center text-xs text-slate-400">Kota tidak ditemukan</div>}
               </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Sudah beroperasi · kota lain dibuka bertahap</div>
               {err.areas && <div className="text-xs font-medium text-rose-600">{err.areas}</div>}
             </div>
           </>
         ) : (
           <div className="space-y-2.5">
+            {/* Foto diri dicocokkan admin dengan foto KTP, lalu jadi foto profil yang dilihat customer */}
+            <label className={cx('flex cursor-pointer items-center gap-3.5 rounded-2xl border p-3.5 transition', f.photo ? 'border-emerald-300 bg-emerald-50' : 'border-dashed border-slate-300 bg-slate-50 hover:border-brand-400')}>
+              {f.photo
+                ? <img src={f.photo} className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white" />
+                : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-200"><Camera size={22} /></span>}
+              <div className="flex-1">
+                <div className="text-sm font-bold">Foto diri</div>
+                <div className="text-xs text-slate-500">{f.photo ? 'Terunggah · ketuk untuk ganti' : 'Wajib · wajah jelas, tanpa masker/kacamata hitam'}</div>
+              </div>
+              {!f.photo && <Upload size={17} className="text-slate-400" />}
+              <input type="file" accept="image/*" capture="user" hidden onChange={(e) => e.target.files.length && setF({ ...f, photo: URL.createObjectURL(e.target.files[0]) })} />
+            </label>
+            {err.photo && <div className="text-xs font-medium text-rose-600">{err.photo}</div>}
             {DOCS.map(([d, req]) => {
               const on = f.docs.includes(d)
               return (

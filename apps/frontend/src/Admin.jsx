@@ -3,14 +3,15 @@ import {
   LayoutDashboard, ClipboardList, UserCheck, Tags, MessageSquareWarning, Search, Bell, TrendingUp, Coins, Activity, CircleCheck, Users, AlertTriangle,
   ChevronRight, ChevronLeft, FileText, Star, Pencil, ShieldAlert, UserPlus, RotateCcw, Ban, Check, MapPin, CalendarDays, ArrowRight, ArrowLeft, Download,
   PanelLeftClose, PanelLeftOpen, LogOut, Settings, User, HelpCircle, Phone as PhoneIcon, CreditCard, Clock, Inbox, CheckCheck,
-  Wallet, Landmark, Layers, Contact, Lock, Plus, History, Power,
+  Wallet, Landmark, Layers, Contact, Lock, Plus, History, Power, ChevronDown, Megaphone, Package, Wrench, X,
 } from 'lucide-react'
-import { useStore, SERVICES, AREAS, ACTIVE, RADIUS, svcOf, areaOf, resolvePrice, candidates, rp, fmtDate, fmtTime, totalOf, extrasTotal, unpaid, held, payoutOf } from './store'
-import { Btn, Badge, Card, Row, Empty, SvcIcon, Avatar, Pill, Thumbs, inputCls, cx } from './ui'
+import { useStore, STATUS, AREAS, ACTIVE, RADIUS, svcOf, catOf, areaOf, svcAvailable, groupByCat, matchSvc, resolvePrice, candidates, rp, fmtDate, fmtTime, totalOf, extrasTotal, unpaid, held, payoutOf } from './store'
+import { Btn, Badge, Card, Row, Empty, SvcIcon, SVC_ICONS, Avatar, Pill, Thumbs, inputCls, cx } from './ui'
 import { navigate } from './router'
 import { AdminAuthProvider, useAdminAuth, canOpen } from './adminAuth'
 import { Login, VerifyEmail } from './AuthPages'
 import AdminProfile from './AdminProfile'
+import { OrderTimeline, ProcessSummary, GanttList, ViewToggle, stageStats, groupSteps } from './Gantt'
 
 const NAV = [
   ['Operasional', [
@@ -150,7 +151,7 @@ function AdminConsole({ route }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar page={page} detailId={detailId} />
         <main ref={mainRef} className="flex-1 overflow-y-auto scrollbar-thin">
-          <div key={page + detailId} className="mx-auto max-w-7xl animate-fade-in space-y-6 px-8 pb-24 pt-8">
+          <div key={page + detailId} className="animate-fade-in space-y-6 px-6 pb-24 pt-6">
             {!allowed ? (
               <Card><Empty icon={Lock} title="Akses terbatas" text={`Halaman ${TITLES[page]} tidak tersedia untuk peran ${user.role}.`} /></Card>
             ) : detailId ? (
@@ -207,7 +208,7 @@ function Topbar({ page, detailId }) {
   }, [])
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-8">
+    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-6">
       <div className="flex items-center gap-1.5 text-[13px] text-slate-400">
         <a href="#/admin/dashboard" className="hover:text-slate-700">Admin</a>
         <ChevronRight size={14} />
@@ -333,7 +334,7 @@ function WorkerCell({ id }) {
   if (!w) return <span className="text-slate-300">Belum ada</span>
   return (
     <span className="flex items-center gap-2">
-      <Avatar name={w.name} size="xs" /> {w.name}
+      <Avatar name={w.name} src={w.photo} size="xs" /> {w.name}
     </span>
   )
 }
@@ -374,6 +375,27 @@ function BookingTable({ rows }) {
   )
 }
 
+// Permintaan customer yang belum terpenuhi, dikelompokkan per layanan × area
+function demandGaps(state) {
+  const m = {}
+  for (const r of state.requests) {
+    if (svcAvailable(state, r.svc, r.area)) continue
+    const k = `${r.svc}|${r.area}`
+    ;(m[k] ||= { svc: r.svc, area: r.area, n: 0 }).n++
+  }
+  return Object.values(m).sort((a, c) => c.n - a.n)
+}
+
+// Opsi layanan dikelompokkan per kategori — tetap terbaca saat katalog membesar
+function SvcOptions() {
+  const { state } = useStore()
+  return groupByCat(state.categories, state.services).map((g) => (
+    <optgroup key={g.id} label={g.name}>
+      {g.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </optgroup>
+  ))
+}
+
 function Dashboard() {
   const { state } = useStore()
   const { user } = useAdminAuth()
@@ -386,6 +408,7 @@ function Dashboard() {
   const alerts = [
     ...bs.filter((b) => b.needsAdmin && b.status === 'searching').map((b) => ({ tone: 'rose', I: ShieldAlert, title: `${b.id} belum mendapat mitra`, text: `${svcOf(b.svc).name} di ${areaOf(b.area).name} · ${b.customer}`, action: 'Tugaskan', onClick: () => openBooking(b.id) })),
     ...bs.filter((b) => b.complaint?.status === 'open').map((b) => ({ tone: 'amber', I: MessageSquareWarning, title: `Komplain terbuka pada ${b.id}`, text: `“${b.complaint.text}”`, action: 'Tinjau', onClick: () => openBooking(b.id) })),
+    ...demandGaps(state).filter((d) => d.n >= 3).map((d) => ({ tone: 'violet', I: Megaphone, title: `Permintaan tinggi: ${svcOf(d.svc).name} di ${areaOf(d.area).name}`, text: `${d.n} customer minta dikabari — layanan belum tersedia di area ini`, action: 'Atur harga', onClick: () => to('pricing') })),
     ...state.workers.filter((w) => w.verified === 'pending').map((w) => ({ tone: 'sky', I: UserPlus, title: `${w.name} menunggu verifikasi`, text: `${w.docs.length} dokumen · ${w.skills.map((s) => svcOf(s).name).join(', ')}`, action: 'Verifikasi', onClick: () => to('verify') })),
   ]
   const kpis = [
@@ -396,7 +419,7 @@ function Dashboard() {
     [Users, 'Mitra online', online.length, `dari ${state.workers.filter((w) => w.verified === 'verified').length} terverifikasi`, 'amber'],
   ]
   const ICON_TONE = { brand: 'bg-brand-50 text-brand-600', emerald: 'bg-emerald-50 text-emerald-600', sky: 'bg-sky-50 text-sky-600', violet: 'bg-violet-50 text-violet-600', amber: 'bg-amber-50 text-amber-600' }
-  const ALERT_TONE = { rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600', sky: 'bg-sky-50 text-sky-600' }
+  const ALERT_TONE = { rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600', sky: 'bg-sky-50 text-sky-600', violet: 'bg-violet-50 text-violet-600' }
   const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
@@ -442,7 +465,7 @@ function Dashboard() {
               return (
                 <div key={w.id} className="flex items-center gap-3 px-5 py-3">
                   <div className="relative">
-                    <Avatar name={w.name} size="sm" />
+                    <Avatar name={w.name} src={w.photo} size="sm" />
                     <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -474,6 +497,23 @@ const FILTERS = [
 ]
 const PAGE_SIZE = 8
 
+// Tahap booking yang punya durasi (lihat steps di store). Komplain hanya muncul bila terjadi.
+const BK_STAGES = [
+  { key: 'searching', label: 'Mencari mitra', bar: 'bg-amber-400' },
+  { key: 'assigned', label: 'Menunggu jadwal', bar: 'bg-slate-300' },
+  { key: 'on_the_way', label: 'Perjalanan', bar: 'bg-sky-400' },
+  { key: 'arrived', label: 'Persiapan di lokasi', bar: 'bg-cyan-500' },
+  { key: 'in_progress', label: 'Pengerjaan', bar: 'bg-violet-500' },
+  { key: 'waiting_confirmation', label: 'Konfirmasi customer', bar: 'bg-fuchsia-400' },
+  { key: 'disputed', label: 'Komplain', bar: 'bg-rose-500', optional: true },
+]
+const BK_GROUPS = [
+  ['all', 'Keseluruhan', () => 'Semua booking'],
+  ['cat', 'Kategori', (b) => catOf(svcOf(b.svc).cat)?.name || 'Lainnya'],
+  ['svc', 'Layanan', (b) => svcOf(b.svc).name],
+  ['city', 'Kota', (b) => areaOf(b.area).city],
+]
+
 function exportCsv(rows, workers) {
   const head = ['ID', 'Layanan', 'Customer', 'Area', 'Jadwal', 'Mitra', 'Status', 'Harga', 'Biaya layanan', 'Biaya tambahan', 'Total']
   const lines = rows.map((b) => [b.id, svcOf(b.svc).name, b.customer, areaOf(b.area).name, new Date(b.schedule).toISOString(), workers.find((w) => w.id === b.workerId)?.name || '', b.status, b.price.base, b.price.fee, extrasTotal(b), totalOf(b)])
@@ -490,18 +530,40 @@ function Bookings({ initialQ }) {
   const [svc, setSvc] = useState('')
   const [q, setQ] = useState(initialQ)
   const [pg, setPg] = useState(0)
+  const [view, setView] = useState('list')
+  const [grp, setGrp] = useState('cat')
   useEffect(() => setQ(initialQ), [initialQ])
   useEffect(() => setPg(0), [f, svc, q])
   const fn = FILTERS.find((x) => x[0] === f)[2]
-  const rows = state.bookings
-    .filter(fn)
+  // Ringkasan rata-rata tidak ikut tab status, supaya booking yang sudah selesai tetap terhitung
+  const base = state.bookings
     .filter((b) => !svc || b.svc === svc)
     .filter((b) => !q || `${b.id} ${b.customer} ${svcOf(b.svc).name} ${areaOf(b.area).name}`.toLowerCase().includes(q.toLowerCase()))
+  const rows = base.filter(fn)
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const shown = rows.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE)
   return (
     <>
-      <H1 sub="Pantau seluruh booking, intervensi matching, dan tinjau audit log" right={<Btn variant="secondary" icon={Download} onClick={() => exportCsv(rows, state.workers)}>Export CSV</Btn>}>Booking</H1>
+      <H1 sub="Pantau seluruh booking, intervensi matching, dan tinjau audit log" right={<>
+        <ViewToggle value={view} onChange={setView} />
+        <Btn variant="secondary" icon={Download} onClick={() => exportCsv(rows, state.workers)}>Export CSV</Btn>
+      </>}>Booking</H1>
+      {view === 'timeline' && (
+        <Card className="!p-0">
+          <CardHead
+            title="Rata-rata durasi per tahap"
+            sub={`Dari ${base.length} booking (semua status) sesuai filter layanan & pencarian`}
+            right={
+              <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+                {BK_GROUPS.slice(1).map(([id, label]) => (
+                  <button key={id} onClick={() => setGrp(id)} className={cx('rounded-lg px-3 py-1.5 text-[13px] font-semibold transition', grp === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>{label}</button>
+                ))}
+              </div>
+            }
+          />
+          <div className="p-5"><ProcessSummary groups={groupSteps(base, BK_GROUPS.find((g) => g[0] === grp)[2], 'Keseluruhan')} stages={BK_STAGES} unit="booking" /></div>
+        </Card>
+      )}
       <Card className="overflow-hidden !p-0">
         <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
           <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
@@ -514,14 +576,20 @@ function Bookings({ initialQ }) {
           </div>
           <select value={svc} onChange={(e) => setSvc(e.target.value)} className={cx(inputCls, '!w-44 ml-auto')}>
             <option value="">Semua layanan</option>
-            {SERVICES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <SvcOptions />
           </select>
           <div className="relative w-64">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input className={cx(inputCls, 'pl-9')} placeholder="Cari ID, customer, area…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
-        <BookingTable rows={shown} />
+        {view === 'list' ? <BookingTable rows={shown} /> : (
+          <GanttList
+            rows={shown.map((b) => ({ id: b.id, title: `${svcOf(b.svc).name} · ${b.customer}`, sub: `${b.id} · ${areaOf(b.area).name}`, steps: b.steps, end: STATUS[b.status][0] }))}
+            stages={BK_STAGES}
+            onOpen={openBooking}
+          />
+        )}
         <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
           <span>
             Menampilkan <b className="text-slate-700">{rows.length ? pg * PAGE_SIZE + 1 : 0}–{pg * PAGE_SIZE + shown.length}</b> dari <b className="text-slate-700">{rows.length}</b> booking
@@ -689,6 +757,13 @@ function BookingDetail({ id }) {
           </Card>
 
           <Card className="!p-0">
+            <CardHead title="Timeline proses" sub={`Durasi tiap tahap dibandingkan rata-rata layanan ${svc.name}`} />
+            <div className="p-5">
+              <OrderTimeline steps={b.steps || []} stages={BK_STAGES} avg={stageStats(state.bookings.filter((x) => x.svc === b.svc && x.id !== b.id).map((x) => x.steps || []), BK_STAGES)} avgLabel="rata-rata" />
+            </div>
+          </Card>
+
+          <Card className="!p-0">
             <CardHead title="Audit log" sub={`${b.log.length} aktivitas tercatat`} />
             <ol className="p-5">
               {[...b.log].reverse().map((l, i, arr) => (
@@ -750,7 +825,7 @@ function BookingDetail({ id }) {
             {w ? (
               <div className="space-y-4 p-5">
                 <div className="flex items-center gap-3">
-                  <Avatar name={w.name} size="lg" />
+                  <Avatar name={w.name} src={w.photo} size="lg" />
                   <div className="flex-1">
                     <div className="font-bold">{w.name}</div>
                     <div className="flex items-center gap-1 text-xs text-slate-500"><Star size={11} className="fill-amber-400 text-amber-400" />{w.rating.toFixed(1)} · {w.jobs} pekerjaan</div>
@@ -785,7 +860,9 @@ function Verify() {
         {pending.map((w) => (
           <Card key={w.id} className="space-y-4 !p-5">
             <div className="flex items-start gap-3">
-              <Avatar name={w.name} size="lg" />
+              {w.photo
+                ? <a href={w.photo} target="_blank" rel="noreferrer" title="Lihat foto diri"><Avatar name={w.name} src={w.photo} size="lg" className="!h-16 !w-16 ring-2 ring-brand-100" /></a>
+                : <Avatar name={w.name} src={w.photo} size="lg" />}
               <div className="flex-1">
                 <div className="text-base font-bold">{w.name}</div>
                 <div className="text-xs text-slate-500">{w.phone} · {w.areas.join(', ')}</div>
@@ -800,6 +877,11 @@ function Verify() {
                 </button>
               ))}
             </div>
+            {!w.photo && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                <AlertTriangle size={14} /> Foto diri belum diunggah — wajah tidak bisa dicocokkan dengan KTP
+              </div>
+            )}
             {w.docs.length < 2 && (
               <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                 <AlertTriangle size={14} /> Dokumen kompetensi belum lengkap untuk kategori {skills(w)}
@@ -825,7 +907,7 @@ function Verify() {
             {verified.map((w) => (
               <tr key={w.id} className="border-t border-slate-100 first:border-0">
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2.5"><Avatar name={w.name} size="sm" /><div><div className="font-semibold">{w.name}</div><div className="text-[11px] text-slate-400">{w.phone}</div></div></div>
+                  <div className="flex items-center gap-2.5"><Avatar name={w.name} src={w.photo} size="sm" /><div><div className="font-semibold">{w.name}</div><div className="text-[11px] text-slate-400">{w.phone}</div></div></div>
                 </td>
                 <td className="px-4"><div className="flex gap-1">{w.skills.map((s) => <SvcIcon key={s} id={s} size="sm" />)}</div></td>
                 <td className="px-4 text-slate-600">{w.areas.join(', ')}</td>
@@ -849,6 +931,8 @@ function Pricing() {
   const [edit, setEdit] = useState(null)
   const [add, setAdd] = useState(null)
   const [hist, setHist] = useState(null)
+  const [mq, setMq] = useState('')
+  const [ruleSvc, setRuleSvc] = useState('')
   const regions = add?.level === 'zone' ? AREAS.map((a) => [a.id, `${a.name} (${a.city})`]) : CITIES.map((c) => [c, c])
   const dup = add && state.prices.some((p) => p.svc === add.svc && p.level === add.level && p.region === add.region)
   const addInvalid = !add || dup || !(Number(add.price) > 0) || !(Number(add.payout) > 0) || Number(add.payout) >= Number(add.price)
@@ -856,35 +940,74 @@ function Pricing() {
     <>
       <H1 sub="Prioritas resolusi: harga zona → harga kota → layanan tidak tersedia">Harga Regional</H1>
       <Card className="overflow-hidden !p-0">
-        <CardHead title="Cakupan harga per area" sub="Harga yang dilihat customer di aplikasi" right={<div className="flex gap-2"><Pill tone="brand">zone</Pill><Pill tone="slate">city</Pill></div>} />
-        <table className="w-full text-left">
-          <thead className="bg-slate-50/70">
-            <tr><TH>Area</TH>{SERVICES.map((s) => <TH key={s.id}><span className="inline-flex items-center gap-2 normal-case tracking-normal"><SvcIcon id={s.id} size="sm" /> <span className="text-xs text-slate-600">{s.name}</span></span></TH>)}</tr>
-          </thead>
-          <tbody>
-            {AREAS.map((a) => (
-              <tr key={a.id} className="border-t border-slate-100">
-                <td className="px-4 py-3.5"><div className="font-semibold">{a.name}</div><div className="text-[11px] text-slate-400">{a.city}</div></td>
-                {SERVICES.map((s) => {
-                  const r = resolvePrice(state.prices, s.id, a.id)
-                  return (
-                    <td key={s.id} className="px-4">
-                      {r ? <span className="inline-flex items-center gap-2 font-semibold tabular-nums">{rp(r.price)} <Pill tone={r.level === 'zone' ? 'brand' : 'slate'}>{r.level}</Pill></span> : <span className="text-xs font-semibold text-rose-500">Tidak tersedia</span>}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <CardHead
+          title="Cakupan harga per layanan"
+          sub="Harga yang dilihat customer di aplikasi — klik sel kosong untuk menambah aturan"
+          right={
+            <div className="flex items-center gap-2">
+              <div className="relative w-56">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input className={cx(inputCls, '!py-1.5 pl-8')} placeholder="Cari layanan…" value={mq} onChange={(e) => setMq(e.target.value)} />
+              </div>
+              <Pill tone="brand">zone</Pill><Pill tone="slate">city</Pill>
+            </div>
+          }
+        />
+        <div className="max-h-[520px] overflow-auto scrollbar-thin">
+          <table className="w-full text-left">
+            <thead className="sticky top-0 z-10 bg-slate-50">
+              <tr><TH>Layanan</TH>{AREAS.map((a) => <TH key={a.id}><span className="normal-case tracking-normal"><span className="block text-xs text-slate-600">{a.name}</span><span className="text-[10px] font-medium text-slate-400">{a.city}</span></span></TH>)}</tr>
+            </thead>
+            <tbody>
+              {groupByCat(state.categories, state.services.filter((x) => matchSvc(x, mq))).map((g) => [
+                <tr key={g.id} className="border-t border-slate-100 bg-slate-50/60"><td colSpan={AREAS.length + 1} className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">{g.name}</td></tr>,
+                ...g.items.map((s) => (
+                  <tr key={s.id} className="border-t border-slate-100">
+                    <td className="px-4 py-2.5"><span className="flex items-center gap-2.5 font-semibold"><SvcIcon id={s.id} size="sm" />{s.name}{state.svcOff.includes(s.id) && <Pill>nonaktif</Pill>}</span></td>
+                    {AREAS.map((a) => {
+                      const r = resolvePrice(state.prices, s.id, a.id)
+                      const asks = state.requests.filter((x) => x.svc === s.id && x.area === a.id).length
+                      return (
+                        <td key={a.id} className="px-4">
+                          {r ? (
+                            <span className="inline-flex items-center gap-2 font-semibold tabular-nums">{rp(r.price)} <Pill tone={r.level === 'zone' ? 'brand' : 'slate'}>{r.level}</Pill></span>
+                          ) : (
+                            <button onClick={() => setAdd({ ...EMPTY_RULE, svc: s.id, level: 'zone', region: a.id })} className="group text-left text-xs font-semibold text-rose-500">
+                              <span className="group-hover:underline">Tidak tersedia</span>
+                              {asks > 0 && <span className="block text-[10px] font-semibold text-violet-600">{asks} permintaan customer</span>}
+                            </button>
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )),
+              ])}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <Card className="overflow-hidden !p-0">
-        <CardHead title="Aturan harga" sub="Perubahan hanya berlaku untuk booking baru — booking terkonfirmasi memakai snapshot." right={!add && <Btn size="sm" icon={Plus} onClick={() => setAdd(EMPTY_RULE)}>Tambah aturan</Btn>} />
+        <CardHead title="Aturan harga" sub="Perubahan hanya berlaku untuk booking baru — booking terkonfirmasi memakai snapshot." right={
+            <div className="flex items-center gap-2">
+              <select value={ruleSvc} onChange={(e) => setRuleSvc(e.target.value)} className={cx(inputCls, '!w-48 !py-1.5')}>
+                <option value="">Semua layanan</option>
+                <SvcOptions />
+              </select>
+              {!add && <Btn size="sm" icon={Plus} onClick={() => setAdd({ ...EMPTY_RULE, svc: ruleSvc || EMPTY_RULE.svc })}>Tambah aturan</Btn>}
+            </div>
+          }
+        />
         {add && (
           <div className="flex flex-wrap items-end gap-3 border-b border-slate-100 bg-brand-50/40 px-5 py-4">
+            <label className="space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Layanan</span>
+              <select className={cx(inputCls, '!w-48 !py-1.5')} value={add.svc} onChange={(e) => setAdd({ ...add, svc: e.target.value })}>
+                <SvcOptions />
+              </select>
+            </label>
             {[
-              ['Layanan', 'svc', SERVICES.map((x) => [x.id, x.name])],
               ['Level', 'level', [['city', 'city'], ['zone', 'zone']]],
               ['Wilayah', 'region', regions],
             ].map(([l, k, opts]) => (
@@ -913,7 +1036,7 @@ function Pricing() {
             <tr>{['Layanan', 'Level', 'Wilayah', 'Harga', 'Payout mitra', 'Komisi', 'Versi', 'Berlaku sejak', ''].map((h) => <TH key={h}>{h}</TH>)}</tr>
           </thead>
           <tbody>
-            {state.prices.map((p) => {
+            {state.prices.filter((p) => !ruleSvc || p.svc === ruleSvc).map((p) => {
               const e = edit?.id === p.id
               const price = e ? Number(edit.price) : p.price
               const payout = e ? Number(edit.payout) : p.payout
@@ -991,7 +1114,7 @@ function Complaints() {
                   <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
                     <span className="flex items-center gap-1.5"><Avatar name={b.customer} size="xs" />{b.customer}</span>
                     <ArrowRight size={12} />
-                    <span className="flex items-center gap-1.5">{w && <Avatar name={w.name} size="xs" />}{w?.name}</span>
+                    <span className="flex items-center gap-1.5">{w && <Avatar name={w.name} src={w.photo} size="xs" />}{w?.name}</span>
                     <span>· diajukan {fmtDate(b.complaint.t)}</span>
                   </div>
                 </div>
@@ -1061,52 +1184,261 @@ function Customers() {
   )
 }
 
+const EMPTY_SVC = { name: '', cat: '', newCat: '', desc: '', keywords: '', icon: 'Wrench', model: 'fixed', paramLabel: '', paramUnit: '', paramMax: 3, extraRate: 80, checklist: '' }
+const SVC_STATUS = { live: ['Aktif', 'emerald'], setup: ['Belum siap', 'amber'], off: ['Nonaktif', 'slate'] }
+
 function Services() {
   const { state, act } = useStore()
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('')
+  const [st, setSt] = useState('all')
+  const [open, setOpen] = useState(null)
+  const [add, setAdd] = useState(null)
+  // Status siap jual: aktif + minimal 1 aturan harga + minimal 1 mitra terverifikasi
+  const info = Object.fromEntries(
+    state.services.map((s) => {
+      const off = state.svcOff.includes(s.id)
+      const areas = AREAS.filter((a) => resolvePrice(state.prices, s.id, a.id))
+      const workers = state.workers.filter((w) => w.verified === 'verified' && w.skills.includes(s.id)).length
+      const bookings = state.bookings.filter((b) => b.svc === s.id).length
+      const asks = demandGaps(state).filter((d) => d.svc === s.id)
+      return [s.id, { off, areas, workers, bookings, asks, n: asks.reduce((t, d) => t + d.n, 0), status: off ? 'off' : areas.length && workers ? 'live' : 'setup' }]
+    }),
+  )
+  const count = (k) => state.services.filter((s) => info[s.id].status === k).length
+  const shown = state.services.filter((s) => matchSvc(s, q) && (!cat || s.cat === cat) && (st === 'all' || info[s.id].status === st))
+  const groups = groupByCat(state.categories, shown)
+  const pending = Object.values(info).reduce((t, x) => t + x.n, 0)
   return (
     <>
-      <H1 sub="Layanan nonaktif tidak tampil di aplikasi customer dan tidak menerima booking baru">Katalog Layanan</H1>
-      <div className="grid grid-cols-2 gap-4">
-        {SERVICES.map((s) => {
-          const off = state.svcOff.includes(s.id)
-          const rules = state.prices.filter((p) => p.svc === s.id)
-          const workers = state.workers.filter((w) => w.verified === 'verified' && w.skills.includes(s.id)).length
-          return (
-            <Card key={s.id} className={cx('space-y-4 !p-5', off && 'opacity-70')}>
-              <div className="flex items-start gap-3">
-                <SvcIcon id={s.id} size="lg" />
-                <div className="flex-1">
-                  <div className="text-base font-bold">{s.name}</div>
-                  <div className="text-xs text-slate-500">{s.desc}</div>
-                </div>
-                <Btn size="sm" variant={off ? 'soft' : 'secondary'} icon={Power} onClick={() => act.toggleService(s.id)}>{off ? 'Aktifkan' : 'Nonaktifkan'}</Btn>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                {[
-                  ['Model harga', s.param ? `Variabel · per ${s.param.unit}` : 'Fixed'],
-                  ['Aturan harga', `${rules.length} wilayah`],
-                  ['Mitra terverifikasi', workers],
-                ].map(([l, v]) => (
-                  <div key={l} className="rounded-xl bg-slate-50 px-3 py-2.5">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{l}</div>
-                    <div className="mt-0.5 font-semibold">{v}</div>
-                  </div>
-                ))}
-              </div>
-              {s.param && <div className="text-xs text-slate-500">Parameter: <b>{s.param.label}</b> (maks. {s.param.max} {s.param.unit}) · unit tambahan dikenakan {Math.round(s.param.extraRate * 100)}% dari harga dasar</div>}
-              <div>
-                <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">Checklist wajib mitra</div>
-                <div className="flex flex-wrap gap-1.5">{s.checklist.map((c) => <Pill key={c}>{c}</Pill>)}</div>
-              </div>
-              <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                <span className="text-xs text-slate-500">Status</span>
-                {off ? <Pill tone="slate" dot>Nonaktif</Pill> : <Pill tone="emerald" dot>Aktif</Pill>}
-              </div>
-            </Card>
-          )
-        })}
+      <H1 sub="Tambah layanan sesuai demand. Layanan nonaktif tidak tampil di aplikasi customer dan tidak menerima booking baru." right={!add && <Btn icon={Plus} onClick={() => setAdd(EMPTY_SVC)}>Tambah layanan</Btn>}>Katalog Layanan</H1>
+
+      {add && <AddService f={add} setF={setAdd} />}
+
+      <div className="grid grid-cols-4 gap-4">
+        {[
+          [Package, 'Total layanan', state.services.length, `${state.categories.length} kategori`, 'all'],
+          [CircleCheck, 'Aktif', count('live'), 'punya harga & mitra', 'live'],
+          [Wrench, 'Belum siap', count('setup'), 'butuh harga atau mitra', 'setup'],
+          [Megaphone, 'Permintaan tertunda', pending, 'customer minta dikabari', null],
+        ].map(([I, l, v, sub, k]) => (
+          <button key={l} disabled={!k} onClick={() => setSt(k)} className={cx('rounded-2xl border bg-white p-4 text-left shadow-soft transition disabled:cursor-default', st === k ? 'border-brand-400 ring-2 ring-brand-500/15' : 'border-slate-200/70 enabled:hover:border-slate-300')}>
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500"><I size={15} /> {l}</div>
+            <div className="mt-1.5 text-2xl font-extrabold tabular-nums">{v}</div>
+            <div className="text-[11px] text-slate-400">{sub}</div>
+          </button>
+        ))}
       </div>
+
+      <Card className="overflow-hidden !p-0">
+        <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+          <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+            {[['all', 'Semua', state.services.length], ...Object.entries(SVC_STATUS).map(([k, [l]]) => [k, l, count(k)])].map(([id, l, n]) => (
+              <button key={id} onClick={() => setSt(id)} className={cx('flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition', st === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
+                {l}
+                <span className={cx('rounded-md px-1.5 text-[10px]', st === id ? 'bg-slate-100' : 'bg-slate-200/70')}>{n}</span>
+              </button>
+            ))}
+          </div>
+          <select value={cat} onChange={(e) => setCat(e.target.value)} className={cx(inputCls, '!w-52 ml-auto')}>
+            <option value="">Semua kategori</option>
+            {state.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <div className="relative w-64">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input className={cx(inputCls, 'pl-9')} placeholder="Cari layanan, kata kunci…" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+        </div>
+        {groups.length === 0 && <Empty icon={Layers} title="Tidak ada layanan" text="Ubah filter atau tambahkan layanan baru." />}
+        {groups.length > 0 && (
+          <table className="w-full text-left text-[13px]">
+            <thead className="bg-slate-50/70">
+              <tr>{['Layanan', 'Model harga', 'Cakupan harga', 'Mitra', 'Booking', 'Permintaan', 'Status', ''].map((h) => <TH key={h}>{h}</TH>)}</tr>
+            </thead>
+            <tbody>
+              {groups.map((g) => [
+                <tr key={g.id} className="border-t border-slate-100 bg-slate-50/60">
+                  <td colSpan={8} className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">{g.name} · {g.items.length}</td>
+                </tr>,
+                ...g.items.flatMap((s) => {
+                  const x = info[s.id]
+                  const isOpen = open === s.id
+                  return [
+                    <tr key={s.id} onClick={() => setOpen(isOpen ? null : s.id)} className={cx('cursor-pointer border-t border-slate-100 transition hover:bg-slate-50/70', x.off && 'text-slate-400')}>
+                      <td className="px-4 py-3">
+                        <span className="flex items-center gap-3">
+                          <SvcIcon id={s.id} size="sm" className={cx(x.off && 'opacity-50 grayscale')} />
+                          <span>
+                            <span className="block font-semibold text-slate-800">{s.name}</span>
+                            <span className="block text-[11px] text-slate-400">{s.desc}</span>
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-4 text-slate-600">{s.param ? `Variabel · per ${s.param.unit}` : 'Fixed'}</td>
+                      <td className="px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-500" style={{ width: `${(x.areas.length / AREAS.length) * 100}%` }} /></div>
+                          <span className={cx('text-xs font-semibold tabular-nums', x.areas.length ? 'text-slate-600' : 'text-rose-500')}>{x.areas.length}/{AREAS.length} area</span>
+                        </div>
+                      </td>
+                      <td className={cx('px-4 font-semibold tabular-nums', !x.workers && 'text-rose-500')}>{x.workers}</td>
+                      <td className="px-4 tabular-nums text-slate-600">{x.bookings}</td>
+                      <td className="px-4">{x.n ? <Pill tone="violet"><Megaphone size={11} /> {x.n}</Pill> : <span className="text-slate-300">—</span>}</td>
+                      <td className="px-4"><Pill tone={SVC_STATUS[x.status][1]} dot>{SVC_STATUS[x.status][0]}</Pill></td>
+                      <td className="px-4 text-right"><ChevronDown size={16} className={cx('inline text-slate-400 transition', isOpen && 'rotate-180')} /></td>
+                    </tr>,
+                    isOpen && (
+                      <tr key={s.id + '-d'} className="bg-slate-50/50">
+                        <td colSpan={8} className="px-5 pb-5 pt-2">
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-3">
+                              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Kesiapan</div>
+                              {[
+                                [!x.off, 'Layanan diaktifkan'],
+                                [x.areas.length > 0, x.areas.length ? `Harga di ${x.areas.map((a) => a.name).join(', ')}` : 'Belum ada aturan harga'],
+                                [x.workers > 0, x.workers ? `${x.workers} mitra terverifikasi` : 'Belum ada mitra terverifikasi'],
+                              ].map(([ok, t]) => (
+                                <div key={t} className="flex items-start gap-2 text-xs">
+                                  {ok ? <CircleCheck size={15} className="shrink-0 text-emerald-500" /> : <AlertTriangle size={15} className="shrink-0 text-amber-500" />}
+                                  <span className={ok ? 'text-slate-600' : 'font-semibold text-slate-700'}>{t}</span>
+                                </div>
+                              ))}
+                              <div className="flex gap-2 pt-1">
+                                <Btn size="sm" variant={x.off ? 'soft' : 'secondary'} icon={Power} onClick={(e) => { e.stopPropagation(); act.toggleService(s.id) }}>{x.off ? 'Aktifkan' : 'Nonaktifkan'}</Btn>
+                                <Btn size="sm" variant="secondary" icon={Tags} onClick={() => to('pricing')}>Atur harga</Btn>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Checklist wajib mitra</div>
+                              <div className="flex flex-wrap gap-1.5">{s.checklist.map((c) => <Pill key={c}>{c}</Pill>)}</div>
+                              {s.param && <div className="pt-1 text-xs text-slate-500">Parameter: <b>{s.param.label}</b> (maks. {s.param.max} {s.param.unit}) · unit tambahan {Math.round(s.param.extraRate * 100)}% dari harga dasar</div>}
+                            </div>
+                            <div className="space-y-2">
+                              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Permintaan per area</div>
+                              {x.asks.length === 0 && <div className="text-xs text-slate-400">Belum ada permintaan tertunda.</div>}
+                              {x.asks.map((d) => (
+                                <div key={d.area} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-xs ring-1 ring-slate-200/70">
+                                  <span className="flex items-center gap-1.5"><MapPin size={13} className="text-slate-400" />{areaOf(d.area).name}</span>
+                                  <b className="text-violet-700">{d.n} customer</b>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ),
+                  ]
+                }),
+              ])}
+            </tbody>
+          </table>
+        )}
+      </Card>
     </>
+  )
+}
+
+const AddField = ({ label, error, className = '', children }) => (
+  <label className={cx('block space-y-1', className)}>
+    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+    {children}
+    {error && <span className="block text-xs font-medium text-rose-600">{error}</span>}
+  </label>
+)
+
+function AddService({ f, setF }) {
+  const { state, act } = useStore()
+  const [touched, setTouched] = useState(false)
+  const set = (k, v) => setF({ ...f, [k]: v })
+  const checklist = f.checklist.split('\n').map((x) => x.trim()).filter(Boolean)
+  const name = f.name.trim()
+  const err = {
+    name: name.length < 3 ? 'Minimal 3 karakter' : state.services.some((s) => s.name.toLowerCase() === name.toLowerCase()) && 'Nama layanan sudah ada',
+    cat: f.cat === '__new' ? (f.newCat.trim().length < 3 || state.categories.some((c) => c.name.toLowerCase() === f.newCat.trim().toLowerCase())) && 'Nama kategori kosong atau sudah ada' : !f.cat && 'Pilih kategori',
+    desc: f.desc.trim().length < 5 && 'Deskripsi singkat wajib diisi',
+    param: f.model === 'variable' && (!f.paramLabel.trim() || !f.paramUnit.trim() || !(f.paramMax >= 2)) && 'Lengkapi label, satuan, dan maksimum (≥ 2)',
+    checklist: !checklist.length && 'Minimal 1 langkah checklist',
+  }
+  const invalid = Object.values(err).some(Boolean)
+  const save = () => {
+    if (invalid) return setTouched(true)
+    const now = Date.now().toString(36)
+    let cat = f.cat
+    if (cat === '__new') {
+      cat = 'cat-' + now
+      act.addCategory({ id: cat, name: f.newCat.trim() })
+    }
+    act.addService({
+      id: 'svc-' + now, cat, icon: f.icon, name, desc: f.desc.trim(), keywords: f.keywords.trim(), checklist,
+      ...(f.model === 'variable' && { param: { label: f.paramLabel.trim(), unit: f.paramUnit.trim(), max: Number(f.paramMax), extraRate: Number(f.extraRate) / 100 } }),
+    })
+    setF(null)
+  }
+  return (
+    <Card className="animate-slide-down overflow-hidden !p-0">
+      <CardHead title="Layanan baru" sub="Layanan baru berstatus Belum siap sampai punya aturan harga & mitra terverifikasi. Customer tetap bisa menekan “Kabari saya”." right={<button onClick={() => setF(null)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>} />
+      <div className="grid grid-cols-[1fr_1fr_280px] gap-x-5 gap-y-4 p-5">
+        <AddField label="Nama layanan" error={touched && err.name}><input autoFocus className={inputCls} value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="mis. Servis Water Heater" /></AddField>
+        <AddField label="Kategori" error={touched && err.cat}>
+          <div className="flex gap-2">
+            <select className={inputCls} value={f.cat} onChange={(e) => set('cat', e.target.value)}>
+              <option value="">Pilih kategori…</option>
+              {state.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <option value="__new">+ Kategori baru</option>
+            </select>
+            {f.cat === '__new' && <input className={inputCls} value={f.newCat} onChange={(e) => set('newCat', e.target.value)} placeholder="Nama kategori" />}
+          </div>
+        </AddField>
+        <div className="row-span-3 space-y-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Ikon</span>
+          <div className="grid grid-cols-5 gap-1.5 rounded-xl bg-slate-50 p-2">
+            {Object.keys(SVC_ICONS).map((k) => (
+              <button key={k} type="button" title={k} onClick={() => set('icon', k)} className={cx('flex items-center justify-center rounded-lg p-1 transition', f.icon === k ? 'bg-white ring-2 ring-brand-500' : 'hover:bg-white')}>
+                <SvcIcon icon={k} size="sm" />
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2.5 pt-2">
+            <SvcIcon icon={f.icon} size="lg" />
+            <div className="min-w-0">
+              <div className="truncate text-sm font-bold">{name || 'Nama layanan'}</div>
+              <div className="truncate text-[11px] text-slate-500">{f.desc || 'Deskripsi singkat'}</div>
+            </div>
+          </div>
+        </div>
+        <AddField label="Deskripsi singkat (tampil di aplikasi)" error={touched && err.desc}><input className={inputCls} value={f.desc} onChange={(e) => set('desc', e.target.value)} placeholder="mis. Air tidak panas, bocor, ganti elemen" /></AddField>
+        <AddField label="Kata kunci pencarian (opsional)"><input className={inputCls} value={f.keywords} onChange={(e) => set('keywords', e.target.value)} placeholder="mis. pemanas air shower panas" /></AddField>
+        <div className="col-span-2 space-y-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Model harga</span>
+          <div className="flex items-center gap-3">
+            <div className="inline-flex gap-1 rounded-xl bg-slate-100 p-1">
+              {[['fixed', 'Fixed'], ['variable', 'Variabel per unit']].map(([id, l]) => (
+                <button key={id} type="button" onClick={() => set('model', id)} className={cx('rounded-lg px-3 py-1.5 text-[13px] font-semibold transition', f.model === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>{l}</button>
+              ))}
+            </div>
+            {f.model === 'variable' && (
+              <div className="flex flex-1 gap-2">
+                <input className={cx(inputCls, '!py-1.5')} value={f.paramLabel} onChange={(e) => set('paramLabel', e.target.value)} placeholder="Label, mis. Jumlah unit" />
+                <input className={cx(inputCls, '!w-24 !py-1.5')} value={f.paramUnit} onChange={(e) => set('paramUnit', e.target.value)} placeholder="Satuan" />
+                <input type="number" className={cx(inputCls, '!w-20 !py-1.5')} value={f.paramMax} onChange={(e) => set('paramMax', e.target.value)} title="Maksimum" />
+                <div className="relative">
+                  <input type="number" className={cx(inputCls, '!w-24 !py-1.5 pr-7')} value={f.extraRate} onChange={(e) => set('extraRate', e.target.value)} title="Tarif unit tambahan (% dari harga dasar)" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+                </div>
+              </div>
+            )}
+          </div>
+          {touched && err.param && <span className="block text-xs font-medium text-rose-600">{err.param}</span>}
+        </div>
+        <AddField label="Checklist wajib mitra (satu langkah per baris)" error={touched && err.checklist} className="col-span-3">
+          <textarea rows={3} className={inputCls} value={f.checklist} onChange={(e) => set('checklist', e.target.value)} placeholder={'Diagnosa masalah\nPerbaikan\nTes fungsi'} />
+        </AddField>
+      </div>
+      <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
+        <Btn variant="ghost" onClick={() => setF(null)}>Batal</Btn>
+        <Btn icon={Plus} onClick={save}>Simpan layanan</Btn>
+      </div>
+    </Card>
   )
 }
 
@@ -1174,7 +1506,7 @@ function Finance() {
             {pend.length === 0 && <tr><td colSpan={5}><Empty icon={CircleCheck} title="Tidak ada payout tertunda" /></td></tr>}
             {pend.map(({ w, list, hold }) => (
               <tr key={w.id} className="border-t border-slate-100 first:border-0">
-                <td className="px-4 py-3"><span className="flex items-center gap-2.5 font-semibold"><Avatar name={w.name} size="sm" />{w.name}</span></td>
+                <td className="px-4 py-3"><span className="flex items-center gap-2.5 font-semibold"><Avatar name={w.name} src={w.photo} size="sm" />{w.name}</span></td>
                 <td className="px-4 font-mono text-xs text-slate-500">{w.bank || '—'}</td>
                 <td className="px-4 text-xs">{list.map((b) => <a key={b.id} href={`#/admin/bookings/${b.id}`} className="mr-2 font-mono font-semibold text-brand-700 hover:underline">{b.id}</a>)}{!list.length && '—'}</td>
                 <td className="px-4 font-semibold tabular-nums">{rp(list.reduce((t, b) => t + payoutOf(b), 0))}</td>

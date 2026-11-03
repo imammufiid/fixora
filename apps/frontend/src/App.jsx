@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Smartphone, Wrench, LayoutDashboard, LayoutGrid, RotateCcw, Check, ListChecks, ChevronDown, ChevronRight } from 'lucide-react'
-import { StoreProvider, useStore, useMe, ME } from './store'
+import { Smartphone, Wrench, LayoutDashboard, LayoutGrid, Store, RotateCcw, Check, ListChecks, ChevronDown, ChevronRight } from 'lucide-react'
+import { StoreProvider, useStore, useMe } from './store'
 import Customer from './Customer'
 import Worker from './Worker'
 import Admin from './Admin'
+import Business from './Business'
 import { Screen, Avatar, cx } from './ui'
 import { AuthGate } from './Auth'
 import { useRoute, navigate } from './router'
@@ -13,13 +14,14 @@ const VIEWS = [
   ['customer', 'Customer', Smartphone, '/customer'],
   ['worker', 'Mitra', Wrench, '/worker'],
   ['admin', 'Admin Ops', LayoutDashboard, '/admin/dashboard'],
+  ['business', 'Business Portal', Store, '/business/dashboard'],
 ]
 const SEEDED = ['FX-1001', 'FX-1002', 'FX-1003']
 
 // Langkah demo yang dicentang otomatis berdasarkan state booking
 const STEPS = [
   ['Pesan AC Service di Kebayoran Baru', 'Customer → pilih layanan, jadwal, bayar', (b) => !!b],
-  ['Terima job offer dalam 30 detik', 'Mitra → kartu job offer', (b) => b?.workerId === ME],
+  ['Terima job offer dalam 30 detik', 'Mitra → kartu job offer', (b, me) => !!me && b?.workerId === me],
   ['Jalankan status sampai dikerjakan', 'Mitra → perjalanan, tiba, foto sebelum', (b) => ['in_progress', 'waiting_confirmation', 'completed', 'disputed'].includes(b?.status)],
   ['Ajukan biaya tambahan', 'Mitra → mis. isi freon R32', (b) => b?.extras.length > 0],
   ['Setujui biaya tambahan', 'Customer → kartu persetujuan', (b) => b?.extras.some((e) => e.status !== 'pending')],
@@ -29,10 +31,11 @@ const STEPS = [
 
 function DemoGuide() {
   const { state } = useStore()
+  const me = state.auth.worker
   const [open, setOpen] = useState(true)
   const demo = [...state.bookings].reverse().find((b) => !SEEDED.includes(b.id) && !b.rework)
-  const done = STEPS.filter(([, , fn]) => fn(demo)).length
-  const current = STEPS.findIndex(([, , fn]) => !fn(demo))
+  const done = STEPS.filter(([, , fn]) => fn(demo, me)).length
+  const current = STEPS.findIndex(([, , fn]) => !fn(demo, me))
   return (
     <div className="rounded-3xl bg-white p-5 shadow-soft ring-1 ring-slate-200/70">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left">
@@ -49,7 +52,7 @@ function DemoGuide() {
       {open && (
         <ol className="mt-4 space-y-3">
           {STEPS.map(([t, d, fn], i) => {
-            const ok = fn(demo)
+            const ok = fn(demo, me)
             const now = i === current
             return (
               <li key={t} className="flex gap-3">
@@ -115,6 +118,14 @@ function Launcher() {
             </div>
             <ChevronRight size={18} className="text-slate-300" />
           </a>
+          <a href="#/business/dashboard" className="flex items-center gap-3.5 rounded-2xl bg-white p-4 shadow-soft ring-1 ring-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-lift">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600"><Store size={22} /></span>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 text-[15px] font-bold">Business Portal <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">Preview · Phase 3</span></div>
+              <div className="text-xs text-slate-500">B2B · outlet, aset, work order, persetujuan</div>
+            </div>
+            <ChevronRight size={18} className="text-slate-300" />
+          </a>
         </div>
 
         <DemoGuide />
@@ -152,15 +163,21 @@ function DemoSwitcher() {
 export default function App() {
   const route = useRoute()
   const p = route.parts[0]
-  const view = p === 'admin' ? 'admin' : p === 'customer' ? 'customer' : p === 'worker' || p === 'mitra' ? 'worker' : 'home'
+  const view = p === 'admin' ? 'admin' : p === 'business' ? 'business' : p === 'customer' ? 'customer' : p === 'worker' || p === 'mitra' ? 'worker' : 'home'
   useEffect(() => {
-    if (view !== 'admin') document.title = { home: 'Fixora — Interactive Demo', customer: 'Fixora', worker: 'Fixora Mitra' }[view]
+    if (view !== 'admin' && view !== 'business') document.title = { home: 'Fixora — Interactive Demo', customer: 'Fixora', worker: 'Fixora Mitra' }[view]
   }, [view])
   return (
     <StoreProvider>
       {view === 'admin' && (
         <>
           <Admin route={route} />
+          <DemoSwitcher />
+        </>
+      )}
+      {view === 'business' && (
+        <>
+          <Business route={route} />
           <DemoSwitcher />
         </>
       )}
